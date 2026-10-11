@@ -1,0 +1,12 @@
+{
+  "name": "fixture",
+  "hebrew": "טבלה",
+  "nested": {
+    "list": [
+      1,
+      2.5,
+      null,
+      true
+    ]
+  }
+}

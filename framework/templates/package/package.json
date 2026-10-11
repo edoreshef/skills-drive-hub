@@ -1,0 +1,6 @@
+{
+  "package": "__PACKAGE__",
+  "title": "__TITLE__",
+  "maintainers": ["__MAINTAINER__"],
+  "version": "__VERSION__"
+}

@@ -1,0 +1,6 @@
+{
+  "package": "domain-sample",
+  "title": "Domain sample",
+  "maintainers": ["domain-lead@example.com"],
+  "version": "0.1.0"
+}
