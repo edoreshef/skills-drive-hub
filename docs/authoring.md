@@ -21,7 +21,10 @@ Keep `SKILL.md` short. If the skill has a script, give both commands, as the ski
 Without that marking, agents on Claude Code read "the published skill directory" as the skill's own
 folder and run `cd <skill> && python scripts/<name>.py`. The allow rules do not match that, so it prompts or is denied.
 
-Scripts read files or stdin and write stdout. They never fetch data and never hold credentials.
+Scripts never contain credentials and never write to a data source. A script that reads data does so
+with the user's own token from `~/.config/<org>/`, never from inside a package or `~/.skills-hub/`;
+`check.py` warns on the literal path and the network import, and the maintainer accepts those warnings
+for that script. A script that does not need data reads files or stdin and writes stdout.
 
 Released scripts carry a sync gate that `release.py` adds after the header comments, the docstring,
 and any `from __future__` imports. Your source stays as you wrote it, but tracebacks from an
@@ -79,7 +82,7 @@ Omit `--package` to build the Skills Hub zip from `framework/`. Upload is not im
 A content release adds the sync gate to every script and refuses one that the gate pushes over 64 KiB.
 Every release blocks users' scripts until they sync, so `--min-version` no longer changes what they can run.
 
-## Feedback (extra)
+## Feedback
 
 ```text
 python maintainer/collect-feedback.py --feedback <downloaded feedback/ dir> --sheet <csv>

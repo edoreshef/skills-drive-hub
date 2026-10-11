@@ -19,8 +19,9 @@ This repo is the framework. It holds no skill content; each package has its own 
 - **Contribute.** The `publish` skill checks a new or changed skill and submits it to that
   package's inbox.
 - **Feedback.** The `feedback` skill records, with the user's consent, whether a skill worked,
-  as one file in that package's `feedback/` folder. `maintainer/collect-feedback.py` turns new
-  files into rows for the package's Sheet.
+  as one file in that package's `feedback/` folder. An install or sync that was not smooth is
+  also a call for feedback; the agent offers it unprompted. `maintainer/collect-feedback.py`
+  turns new files into rows for the package's Sheet.
 - **Review and release.** That package's maintainers review the submission, commit it to the
   package's repo, and release a new version to Drive. The next sync brings it to everyone.
 

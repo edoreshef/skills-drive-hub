@@ -3,8 +3,8 @@
 ## Goal
 
 Skills Hub lets an organization share agent skills through Google Drive. Domain experts who do
-not use git or a terminal **get** skill packages, keep them **current**, and **contribute** back,
-from inside their AI host. Hosts: Claude Code, Claude Science, Cursor. OS: macOS, Windows, Linux.
+not use git or a terminal **get** skill packages, keep them **current**, **contribute** back, and
+give **feedback** on whether skills worked, from inside their AI host. Hosts: Claude Code, Claude Science, Cursor. OS: macOS, Windows, Linux.
 
 Three layers, each versioned on its own:
 
@@ -14,9 +14,6 @@ Three layers, each versioned on its own:
 
 A user installs Skills Hub, the foundation package, and the domain packages they work in.
 A domain release never rebuilds Skills Hub, and a Skills Hub release never rebuilds content.
-
-Extras build on the same drives and tools without changing how sharing works. The first is
-[feedback](#extras).
 
 ## Decisions
 
@@ -31,7 +28,7 @@ Evidence for the spike references (S1–S10) is in [`spikes/README.md`](../spike
 | Release zips are padded to at least 64 KiB with a stored `padding.bin`, which install drops. Agents never retype a zip. | Claude Code returns a result of up to 50,000 characters inline. A 26 KB zip came back inline, and the model's copy took 17 minutes and was wrong. A larger zip is saved to a file that the tools read directly (S9). |
 | Two Shared Drives per package: Published (users read) and Submissions (authors write). | A Shared Drive role applies to every folder in it. A maintainer of one package must not be able to write another package or the framework. |
 | Only the framework zip carries the installer. A content zip containing `tools/install.py` is refused at release and at install. | A domain release must not be able to replace the installer. |
-| Scripts are local helpers: they read files or stdin and write stdout. They never fetch data or hold credentials. | Data access stays in the host's connectors, behind SSO. |
+| Scripts never contain credentials and never write to a data source. A script may read data with the user's own token from `~/.config/<org>/`, outside every package and outside `~/.skills-hub/`; `check.py` warns on the literal path and on network imports, and the maintainer accepts those warnings for such a script. (Until 2026-10-11 the rule was that scripts never fetch data at all.) | The foundation package is also the reference code for reaching the organization's data, and a program such as a dashboard imports it. The token is per user and SSO-gated like the host's connectors. A skill still documents the connector route for hosts where Python has no network (Claude Science). |
 | Released scripts carry a sync gate. A content script runs only if its package was checked within 24 hours and no newer version is pending. `release.py` adds the gate; the package repos never have it. | Skills must stop working when they may be out of date, and prose instructions do not enforce that. Injecting at release keeps authors' sources and tests ungated. |
 | Scripts declare dependencies with PEP 723: a bare name or an exact `==` pin. Claude Code and Cursor run them with `uv run --script`; Claude Science installs with `manage_packages` and runs `python`. | Claude Science has no `uv`, and its package tool rejects ranges (S3). |
 | Claude Code loads `~/.skills-hub` as a local directory marketplace. Cursor gets one symlink per package. Claude Science publishes each skill through `host.skills` after two standing grants. | What each host actually loads (S3, S4, S5). Details in [`hosts.md`](hosts.md). |
@@ -57,8 +54,8 @@ Evidence for the spike references (S1–S10) is in [`spikes/README.md`](../spike
 "<package> — Submissions"                 maintainers: Manager; authors: Contributor
 ├── inbox/<skill>__<yyyymmdd-hhmm>__<author>.zip
 ├── accepted/   rejected/                 moved here with a REVIEW.md
-├── feedback/<yyyymmdd-hhmm>__<author>__<skill>.json    feedback extra
-└── Feedback (Sheet)                                     feedback extra
+├── feedback/<yyyymmdd-hhmm>__<author>__<skill>.json    one file per feedback entry
+└── Feedback (Sheet)                                     collected by maintainers
 ```
 
 The Skills Hub maintainers update `index.json` when a package is registered. Domains do not write it.
@@ -151,16 +148,18 @@ later is blocked for that skill; `link.py` leaves the skill out of its Cursor li
 
 The next sync on each user's machine brings the release to everyone who has that package.
 
-## Extras
-
-An extra uses the package drives and the framework tools, ships in the framework zip, and is
-never required for get, sync, or contribute to work.
-
-### Feedback
+## Feedback
 
 The `feedback` skill asks which package and skill, asks consent, and writes one JSON file to
 that package's Submissions drive under `feedback/`. `maintainer/collect-feedback.py` turns new
 files into CSV rows for the package's Feedback Sheet.
+
+A first install or a sync that was not smooth is a call for feedback, even when it ended well.
+START HERE's last step and the `feedback` skill tell the agent to offer it whenever a step needed
+a retry, a workaround, or a departure from the written steps. Such an entry is recorded against
+`skills-hub` with skill `install` or `sync`, carries the Skills Hub version from `doctor.py`
+(Skills Hub is not in `state.json`), and goes to the foundation package's `feedback/` folder,
+since the Skills Hub maintainers maintain that package. Consent is still required.
 
 ## Security
 
@@ -196,9 +195,15 @@ Not tested:
 - The sync gate through the real hosts. It is tested locally with `uv run --script`, not yet in Claude Code or Cursor sessions.
 - Windows junctions in `link.py`.
 
+Decided 2026-10-11: the foundation package is `<org>-foundation` (its own repo). It owns the
+`~/.config/<org>/` secrets layout and a single constants module (`data-sources/scripts/settings.py`)
+holding every Drive, Sheet, folder and data-source ID; functions take IDs as parameters and never
+hardcode them. Domain IDs split out to domain packages only if foundation releases start being driven
+by ID changes. A program that imports a released foundation script meets the import-time sync gate and
+must turn exit code 75 into "run the sync skill" for its user.
+
 Open decisions:
 
-- Slug for the foundation package.
 - A per-zip size budget, if one fetch cannot carry a whole package.
 - A backup reviewer for each package.
 - How a skill owner hears about a non-owner edit (v1: the maintainers message them).

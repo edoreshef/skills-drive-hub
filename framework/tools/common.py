@@ -189,10 +189,14 @@ def write_entries(zip_path, entries):
 
 
 def tree_files(directory):
-    """Regular files under directory as (path, relative), skipping symlinks and __pycache__."""
+    """Regular files under directory as (path, relative), skipping symlinks, __pycache__ and .git (a package
+    directory is usually a git checkout; the repository itself never ships)."""
     directory = Path(directory)
     return [
         (path, path.relative_to(directory).as_posix())
         for path in sorted(directory.rglob("*"))
-        if path.is_file() and not path.is_symlink() and "__pycache__" not in path.parts
+        if path.is_file() and not path.is_symlink() and not SKIPPED_PARTS & set(path.parts)
     ]
+
+
+SKIPPED_PARTS = {"__pycache__", ".git"}
