@@ -23,6 +23,7 @@ from common import (
     RESERVED_SKILLS,
     SCIENCE_MAX_BYTES,
     SCIENCE_MAX_FILES,
+    SKIPPED_PARTS,
     SLUG_RE,
     is_binary_name,
     is_conflict_copy,
@@ -127,7 +128,7 @@ def read_package_json(package_dir, findings):
 
 def walk_tree(package_dir, findings):
     for path in sorted(package_dir.rglob("*")):
-        if "__pycache__" in path.parts:
+        if SKIPPED_PARTS & set(path.parts):
             continue
         relative = path.relative_to(package_dir).as_posix()
         if path.is_symlink():
@@ -217,7 +218,7 @@ def run_test(test, skill_dir, findings):
     relative = test.relative_to(skill_dir.parents[1]).as_posix()
     try:
         result = subprocess.run(
-            [sys.executable, str(test)],
+            [sys.executable, str(test.resolve())],     # absolute: cwd is the skill, --package may be relative
             cwd=skill_dir,
             capture_output=True,
             text=True,

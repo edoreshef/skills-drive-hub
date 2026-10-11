@@ -20,7 +20,7 @@ export const TitleScene: React.FC = () => {
         <div style={{height: 4, width: 1760 * rule, background: C.blue}} />
       </Abs>
       <Rise at={8} x={80} y={278}><Tag mono size={24}>Skills Hub</Tag></Rise>
-      <Rise at={14} x={80} y={370}><H size={110}>Skills, without the terminal</H></Rise>
+      <Rise at={14} x={80} y={370}><H size={110}>Simple Skills Sharing</H></Rise>
       <Rise at={30} x={80} y={520} w={1300}>
         <P size={38}>How an organization shares agent skills through Google Drive: get them, stay current, and contribute back, by asking your agent.</P>
       </Rise>
