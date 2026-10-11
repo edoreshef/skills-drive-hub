@@ -5,16 +5,23 @@ How each host loads packages and runs scripts. Tested versions are in
 
 ## Claude Code
 
-Drive: the claude.ai Google Drive connector, tied to the user's claude.ai account.
+Drive: the claude.ai Google Drive connector, tied to the user's claude.ai account (Pro/Max; connect it at
+`claude.ai/settings/connectors`, choosing the Google account that is a member of the drives). The CLI loads
+connectors only on a full login: if `CLAUDE_CODE_OAUTH_TOKEN` (a setup token, inference scope only) is set in the
+environment, no connector appears and the debug log says `[claudeai-mcp] Missing user:mcp_servers scope`. Unset it
+or run `claude /login`.
 
-Register `~/.skills-hub` once as a local directory marketplace. No git and no network:
+`install.py` writes `~/.skills-hub/.claude-plugin/marketplace.json` (one plugin per installed tree). Register it once
+as a local directory marketplace. No git and no network:
 
 ```text
 claude plugin marketplace add ~/.skills-hub
-claude plugin install <plugin> --marketplace <name>
+claude plugin install skills-hub@skills-hub
+claude plugin install <slug>@skills-hub
 ```
 
-`marketplace.json` lists `framework/current` and each `packages/<slug>/current`. Sessions read
+The marketplace file lists `framework/current` and each `packages/<slug>/current`, and is rewritten after every
+install and sync. Sessions read
 those directories in place, so swapping `current` is the update. Do not also copy these skills
 into `~/.claude/skills`: they would load twice. `claude plugin marketplace remove` leaves a
 cache folder under `~/.claude/plugins/cache/`; delete it on uninstall.
@@ -43,7 +50,8 @@ If the agent composes its own command instead, the rules stop matching. Rules fo
 
 ## Cursor
 
-Drive: Cursor has no claude.ai connectors. It needs a remote Google Drive MCP, not chosen yet.
+Drive: Cursor has no claude.ai connectors. It needs a Google Drive MCP, not chosen yet; `spikes/drive-mcp/` shows the
+tool surface such a server must offer (tested with headless Claude Code, S11).
 
 Cursor reads `~/.claude/skills` and `~/.cursor/skills`, follows symlinks, and loads nested skill folders. Link every installed package with:
 
@@ -68,7 +76,9 @@ machine, can unblock them.
 Drive: the claude.ai Google Drive connector. Connect it at `claude.ai/customize/connectors`
 while signed into the same claude.ai account. Once connected it is attached to the main agent
 profile. Each Drive tool asks once; choose "Allow for this project" or turn on the connector's
-"Skip approvals".
+"Skip approvals". A card nobody answers dismisses itself after 10 minutes and the call fails, so grant
+`search_files`, `read_file_content`, `download_file_content`, `get_file_metadata` and `create_file` before an
+unattended run.
 
 Claude Science does not read `~/.skills-hub` or `~/.claude/skills`; its sandbox has its own home.
 The install path is different:
@@ -91,7 +101,11 @@ shell have different home directories, so use workspace-relative paths, not `~`.
 
 There is no SessionStart hook. Users run sync when versions look old.
 
-The sync gate cannot check anything here: the sandbox has no `~/.skills-hub`. Until spike S10 settles
-where Science keeps sync state, gated scripts print a warning and run.
+`~` is a fresh tmpfs for every cell, so nothing written under it survives to the next step; the workspace directory
+persists and is shared by the kernel and the shell. START HERE therefore sets `SKILLS_HUB_ROOT=<workspace>/.skills-hub`
+and the tools default to it. The sync gate reads `SKILLS_HUB_ROOT/state.json` and fails closed like any other host
+(S12; S10 answered). Published skill directories are read-only, so a script can keep nothing beside itself; the
+sandbox sets `PYTHONSAFEPATH=1`, which the tools tolerate since 0.1.4. Tool stdout rewrites the workspace prefix to
+`./`, so compose absolute paths from `os.getcwd()` rather than reading them off output.
 
 On Ubuntu 24.04 the sandbox needs an AppArmor profile that grants `userns` to `/usr/bin/bwrap`.

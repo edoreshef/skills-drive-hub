@@ -16,7 +16,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-import check
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # PYTHONSAFEPATH-proof: common.py lives next to this file
+import check  # noqa: E402
 from common import author_token, tree_files, unique_path, write_zip
 
 
@@ -49,7 +50,7 @@ def main(argv):
         return 1
     today = datetime.now(timezone.utc).date().isoformat()
     changes = skill_dir / "CHANGES.md"
-    entry = f"\n## {today}\n\n{rationale}\n"
+    entry = f"\n\n## {today}\n\n{rationale}\n"      # rstrip above drops the file's trailing newline: put back a blank line
     changes.write_text(changes.read_text(encoding="utf-8").rstrip() + entry, encoding="utf-8")
     submission = {
         "package": slug,

@@ -55,8 +55,11 @@ class GateTest(ToolTest):
         self.install_release(self.root, self.out / SLUG)
         self.script = self.root / f"packages/{SLUG}/current/skills/shared-terms/scripts/echo_marker.py"
 
-    def run_script(self, script=None, home=None):
+    def run_script(self, script=None, home=None, hub_root=None):
         env = dict(os.environ, HOME=str(home or self.home))
+        env.pop("SKILLS_HUB_ROOT", None)
+        if hub_root:
+            env["SKILLS_HUB_ROOT"] = str(hub_root)
         return subprocess.run([sys.executable, str(script or self.script)], capture_output=True, text=True, env=env)
 
     def set_record(self, root=None, **fields):
@@ -149,7 +152,7 @@ class GateTest(ToolTest):
 
         science = self.run_script(copy)
         self.assert_runs(science)
-        self.assertIn(f"warning: package {SLUG}: no ~/.skills-hub on this host", science.stderr)
+        self.assertIn(f"warning: package {SLUG}: no ~/.skills-hub on this host and SKILLS_HUB_ROOT is not set", science.stderr)
 
         home_root = self.home / ".skills-hub"
         home_root.mkdir()
@@ -159,6 +162,23 @@ class GateTest(ToolTest):
         self.assert_blocked(self.run_script(copy), "last sync check")
         write_json(home_root / "state.json", {"packages": {}})
         self.assert_blocked(self.run_script(copy), "no readable sync record")
+
+    def test_skills_hub_root_names_the_state_and_fails_closed(self):
+        """Claude Science: ~ does not persist, so START HERE sets SKILLS_HUB_ROOT to a workspace path. A published
+        skill's script (outside any install root) reads that state and blocks like any other host."""
+        copy = self.tmp / "published" / "skills" / "shared-terms" / "scripts" / "echo_marker.py"
+        copy.parent.mkdir(parents=True)
+        shutil.copy(self.script, copy)
+        workspace_root = self.tmp / "workspace" / ".skills-hub"
+        # set but missing: fails closed, no warning-and-run
+        self.assert_blocked(self.run_script(copy, hub_root=workspace_root), "no readable sync record")
+        workspace_root.mkdir(parents=True)
+        shutil.copy(self.root / "state.json", workspace_root / "state.json")
+        fresh = self.run_script(copy, hub_root=workspace_root)
+        self.assert_runs(fresh)
+        self.assertNotIn("warning", fresh.stderr)
+        self.set_record(workspace_root, pending_version="9.9.9")
+        self.assert_blocked(self.run_script(copy, hub_root=workspace_root), "update 9.9.9 is available")
 
     def test_gate_placement_nested_scripts_and_an_untouched_source(self):
         package = copy_fixture(FIXTURES / SLUG, self.tmp / "placed-src", "placed-sample")

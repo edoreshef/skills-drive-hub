@@ -20,7 +20,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-import doctor
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # PYTHONSAFEPATH-proof: common.py lives next to this file
+import doctor  # noqa: E402
 from common import DEFAULT_ROOT, HUB_SLUG, skill_name, write_json_atomic
 
 

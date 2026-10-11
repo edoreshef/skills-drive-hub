@@ -7,6 +7,7 @@ Assets for rerunning them:
 
 - `drive-kit/` — five connector-fidelity files, their `manifest.json`, and `README.md`, the prompt the agent follows. Upload the folder to Drive with "Convert uploads to Google Docs format" **off**, then tell the agent to follow the README. Regenerate the files with `python spikes/make_fixtures.py`; check a downloaded copy with `python spikes/make_fixtures.py --verify <dir>`.
 - `spike-hello/` — a minimal skill whose script depends on `tabulate`. Used for loading, hook, permission, and Claude Science publish tests.
+- `drive-mcp/` — a stand-in for the claude.ai Google Drive connector as a local stdio MCP server (same tool names and result shapes; auth = the maintainer's gcloud sign-in through `maintainer/drive.py`), with its `mcp.json`. For end-to-end tests of START HERE and sync on a host without the connector (S11).
 
 Record new results here with host, version, OS, Drive type, and date.
 
@@ -26,7 +27,9 @@ and the old framework plugin name, `framework` (now `skills-hub`).
 | S7 permissions | **Pass.** Zero prompts with the allow rules and one absolute command. | Claude Code 2.1.288, Linux |
 | S8 Drive checksums | **Pass** on My Drive: upload returns `sha256Checksum` and it matched. Shared Drive and rclone not tested. | Drive API v3, Linux |
 | S9 install and sync through the connector | **Pass** at the default limit with zips padded to 64 KiB, and with `MAX_MCP_OUTPUT_TOKENS=2000`. **Fail** at the default without padding: a 26 KB zip came back inline and the model's copy of it was wrong. | Claude Code CLI 2.1.288, Linux, My Drive, 2026-10-10 |
-| S10 Claude Science sync state | **Not run.** Procedure below. Until it runs, gated scripts on Science warn and run. | — |
+| S10 Claude Science sync state | **Answered by S12.** A workspace-relative file is shared by kernel and shell and persists, but is not reachable by a relative path from a published skill's `scripts/`, and the published skills mount is read-only. So the state lives at `SKILLS_HUB_ROOT=<workspace>/.skills-hub` and the gate reads that variable (0.1.4). | Claude Science 0.1.60, Linux, 2026-10-11 |
+| S12 agent-driven START HERE in Claude Science, real Shared Drives | **Pass**, with findings fixed in 0.1.4: all nine skills published byte-exact (39 files), hashes matched first time, doctor ok, a published script ran; 28 tool calls, 48 approval cards (all auto-allowed by the two grants), about 12 min. Found: `~` is a per-cell tmpfs; `PYTHONSAFEPATH=1` broke `python3 <abs>/install.py`; `--from-tool-result` refused raw zip bytes; the inline-zip stop rule is Claude-Code-only. | Claude Science 0.1.60, Linux, the daemon's web UI driven by Playwright, 2026-10-11 |
+| S11 agent-driven START HERE and sync against real Shared Drives | **Pass.** Headless Claude Code followed the START HERE Doc end to end (13–16 tool calls, ~3 min), then the installed `sync` skill moved the foundation 0.1.2 → 0.1.3 (9 calls). Both zips saved to files at the default output limit; hashes matched first time; gated scripts ran with zero prompts under the documented allow rules and were denied without them. Found and fixed: no tool wrote `marketplace.json`; step 7 gave no commands. | Claude Code CLI 2.1.288, Linux, Oddity Labs Shared Drives: first through `spikes/drive-mcp`, then through the real claude.ai connector (START HERE 16 calls, 100 s; sync 6 calls), 2026-10-11 |
 
 ## S1, S2 — Google Drive connector (claude.ai)
 
@@ -130,3 +133,65 @@ republish every skill on each check.
 
 Record the host version, OS, each resolved path, and whether the file survived. If it passes,
 change the gate's "no `~/.skills-hub`" branch to read that path and fail closed.
+
+## S11 — Agent-driven START HERE and sync, real Shared Drives
+
+Setup: the framework and `odditylabs-foundation` released with `release.py --upload` to the Shared Drives
+`setup_drive.py` made (Google Workspace, Oddity Labs). The CLI's claude.ai login had no Drive connector, and its
+Google account cannot see those drives, so `spikes/drive-mcp/server.py` stood in for the connector (same five tools,
+same result shapes, `--strict-mcp-config`). Headless `claude -p --dangerously-skip-permissions`, told to read the
+START HERE Doc by file ID and to use `/tmp/e2e/skills-hub` as the root.
+
+- **Run 1 (framework 0.1.2):** steps 1–6 and 8 clean in 13 tool calls; both zips (about 87,600 characters of base64)
+  were saved to files and `install.py --from-tool-result` read them; sha256 matched first time. The agent reported
+  step 7 as underspecified: no `marketplace.json` existed anywhere, and no command or allow rule was given. Both were
+  true: `design.md` listed `marketplace.json` but no tool wrote it. Fixed in 0.1.3 (`install.py` writes
+  `<root>/.claude-plugin/marketplace.json`; START HERE step 7 gives the commands and rules).
+- **Run 2 (framework 0.1.3):** 16 calls, nothing not smooth. `claude plugin marketplace add <root>` and
+  `claude plugin install skills-hub@skills-hub` / `odditylabs-foundation@skills-hub` succeeded; `claude plugin validate`
+  passed the generated marketplace file (warnings about missing author fields only). The agent noted that the plugin
+  commands themselves write `extraKnownMarketplaces` and `enabledPlugins` into `~/.claude/settings.json`.
+- **Loading:** a fresh session saw all nine skills (six foundation, three framework). Without allow rules every
+  attempt to run or read a skill script was denied (as S7). With `Bash(uv run --script <root>/*)` and
+  `Read(<root>/**)` both gated scripts ran with zero prompts; `uv` resolved the Google pins.
+- **Sync:** after `odditylabs-foundation` 0.1.3 was released, a session running the installed `sync` skill
+  downloaded `current.json` by the ID in `state.json`, was told a zip was required, downloaded it (saved to a file),
+  installed 0.1.3 (`previous/` kept), ran doctor: 9 tool calls. The agent also observed, correctly, that the gate
+  cannot block before a check has run: a script run just before sync still passed. That is the design.
+- **Found by the agents on the way:** `identity.py` left `odd_number` null when the ODD number arrived as an alias
+  (fixed, foundation 0.1.3). `publish.py` glued the CHANGES.md heading to the previous paragraph (fixed).
+- **Real connector (same day):** the CLI showed no connectors because `CLAUDE_CODE_OAUTH_TOKEN` was set in the shell
+  (`[claudeai-mcp] Missing user:mcp_servers scope`); with it unset, the Max login's connectors loaded, and Google Drive
+  (connected at claude.ai to edor@oddity.com) saw the Skills Hub drives. START HERE from scratch: 16 tool calls, about
+  100 s, both zips saved to files, hashes matched first time, plugins registered. The `sync` skill: 6 calls, "up to
+  date" (the download tool is deferred and needs one ToolSearch first). The agent asked for `python3` in the Doc
+  (bare `python` was another project's venv on this machine): changed.
+- Cleanup: `claude plugin uninstall` ×2 and `claude plugin marketplace remove skills-hub` undo the registration; the
+  cache folder `~/.claude/plugins/cache/skills-hub` has to be deleted by hand (as S4 said).
+
+## S12 — Claude Science, agent-driven START HERE
+
+Setup: the daemon's web UI (`claude-science serve`, v0.1.60) driven headlessly with Playwright: a nonce login
+(`claude-science url`), the two `customize_mutation` grants written through `PUT /api/approvals/grants` from the
+UI's own origin (the daemon refuses cross-site writes and needs its `x-operon-csrf` header), then the prompt typed
+into a session of the project whose Drive tool grants already existed. The Drive connector is the claude.ai one
+(edoreshef@gmail.com's account, Google Drive connected to edor@oddity.com).
+
+- Steps 1–8: both zips downloaded in the kernel (`download_file_content` returns a dict; no base64 reached the
+  conversation), sha256 matched in the kernel and again with `shasum`, `install.py` installed the foundation,
+  `host.skills.edit` ×39 and `publish` ×9 with 0 errors, doctor ok. 28 tool calls; the 48 approval cards were all
+  auto-allowed by the grants.
+- `identity.py` ran from the published skill directory with the "no ~/.skills-hub" warning (the gate's warn-and-run
+  branch; replaced by `SKILLS_HUB_ROOT` in 0.1.4).
+- Not smooth (all fixed in 0.1.4 or documented): `~` did not persist between cells, so the agent re-rooted the hub
+  under the workspace; `PYTHONSAFEPATH=1` made `from common import` fail; `--from-tool-result` died on raw zip
+  bytes; the "zip came back inline → stop" rule did not apply.
+- **Rerun on 0.1.4 / foundation 0.2.2 (same day):** followed the Doc as written, nothing done differently. Root
+  `<workspace>/.skills-hub` through `SKILLS_HUB_ROOT`, no `--root`, no `PYTHONPATH`; both hashes matched first time;
+  9 stale skills deleted, 15 published (87 files, all sha256-identical to the install root); doctor ok. 111 cards,
+  all auto-allowed by the `skill_edit` / `skill_publish` / `skill_delete` grants (518 s). The gate on Science: without
+  the variable, warning and run; with it, silent pass; with `pending_version` set, exit 75 and the "run sync" line.
+  Still true: `get_file_metadata` is not covered by the project's Drive grants and its card self-dismissed after
+  10 minutes; a published skill directory is read-only.
+- `/api/frames/<id>` holds the full transcript (`context_data._messages`); a session's status stays `processing`
+  while it is open, so poll the last assistant message, not the status.

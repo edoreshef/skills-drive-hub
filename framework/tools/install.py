@@ -24,6 +24,8 @@ import tempfile
 import zipfile
 from pathlib import Path, PurePosixPath
 
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # PYTHONSAFEPATH-proof: common.py lives next to this file
 from common import (
     DEFAULT_ROOT,
     PADDING_NAME,
@@ -33,6 +35,7 @@ from common import (
     load_state,
     save_state,
     utc_now,
+    write_marketplace,
 )
 
 
@@ -55,7 +58,9 @@ def main(argv):
     root = args.root.expanduser()
     try:
         if args.from_tool_result:
-            data = load_tool_result(args.from_tool_result)
+            # a saved download_file_content result (Claude Code), the raw zip bytes (Claude Science's kernel
+            # writes those), or base64 of the zip: read_download tells them apart
+            data, _ = read_download(args.from_tool_result, is_zip, "a zip")
         else:
             data = decode_b64(args.base64_file.read_text(encoding="utf-8"), is_zip)
             if data is None:
@@ -99,6 +104,7 @@ def install(root, slug, data, expected_sha, expected_bytes=None, expected_versio
         "last_check": utc_now(),
     }
     save_state(root, state)
+    write_marketplace(root)
     return version
 
 
@@ -137,14 +143,6 @@ def read_download(path, accept, what):
     if data is None:
         raise InstallError(f"{path} is not {what}, a saved download_file_content result, or base64 of one")
     return data, file_id
-
-
-def load_tool_result(path):
-    node = parse_tool_result(path.read_text(encoding="utf-8"))
-    data, _ = find_payload(node, is_zip) if node is not None else (None, None)
-    if data is None:
-        raise InstallError("tool result has no base64 zip")
-    return data
 
 
 def parse_tool_result(text):

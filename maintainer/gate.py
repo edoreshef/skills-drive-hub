@@ -2,8 +2,10 @@
 
 A gated script runs only if its package's state.json record has a last_check within
 MAX_AGE_HOURS and no pending_version. Under packages/<slug>/current/ it reads that root's
-state.json and fails closed. Anywhere else it reads ~/.skills-hub/state.json if one exists, and
-otherwise (Claude Science, which has no ~/.skills-hub) it warns and runs.
+state.json and fails closed. Anywhere else it reads SKILLS_HUB_ROOT/state.json if that variable is
+set (Claude Science: START HERE points it at the workspace, which persists; the published skill
+directory does not) and fails closed; else ~/.skills-hub/state.json if one exists, failing closed;
+and with neither it warns and runs.
 """
 
 import ast
@@ -29,10 +31,11 @@ def _skills_hub_gate(slug=__SLUG__, max_age=__MAX_AGE__):
 
     roots = [p.parents[2] for p in Path(__file__).resolve().parents
              if p.name == "current" and p.parent.name == slug and p.parent.parent.name == "packages"]
-    root = roots[0] if roots else Path(os.path.expanduser("~")) / ".skills-hub"
-    if not roots and not (root / "state.json").exists():
-        print(f"warning: package {slug}: no ~/.skills-hub on this host, so sync status is not checked.",
-              file=sys.stderr)
+    env_root = os.environ.get("SKILLS_HUB_ROOT")
+    root = roots[0] if roots else Path(env_root).expanduser() if env_root else Path(os.path.expanduser("~")) / ".skills-hub"
+    if not roots and not env_root and not (root / "state.json").exists():
+        print(f"warning: package {slug}: no ~/.skills-hub on this host and SKILLS_HUB_ROOT is not set, so sync "
+              f"status is not checked.", file=sys.stderr)
         return
     try:
         record = json.loads((root / "state.json").read_text(encoding="utf-8"))["packages"][slug]

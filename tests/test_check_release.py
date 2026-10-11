@@ -153,7 +153,8 @@ class ReleaseTest(ToolTest):
     def test_framework_and_content_zips_match_their_manifests(self):
         out = self.tmp / "dist"
         self.release(out, min_version="0.0.1")
-        framework_zip = out / "skills-hub/skills-hub-0.1.0.zip"
+        version = read_json(MAINTAINER.parent / "framework" / "package.json")["version"]
+        framework_zip = out / f"skills-hub/skills-hub-{version}.zip"
         self.assert_zip_matches_manifest(framework_zip, out / "skills-hub/manifest.json")
         current = read_json(out / "skills-hub/current.json")
         self.assertEqual(current["min_version"], "0.0.1")

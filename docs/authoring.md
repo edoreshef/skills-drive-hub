@@ -71,13 +71,56 @@ The report shows the package and its maintainers, owner versus submitter, the ra
 `submission.json`, the zip's Drive owner and last modifier, the diff against the baseline, and
 the check findings.
 
+## Decide
+
+```text
+python maintainer/decide.py inbox  --package <slug>
+python maintainer/review.py --package <candidate> --skill <skill> --baseline <released package> ... > REVIEW.md
+python maintainer/decide.py accept --package <slug> --zip <name>.zip --review REVIEW.md [--note "<one line for the author>"]
+python maintainer/decide.py reject --package <slug> --zip <name>.zip --review REVIEW.md [--note ...]
+```
+
+`decide.py` moves the zip from `inbox/` to `accepted/` or `rejected/` on the Submissions drive and uploads the
+report next to it as `<name>.REVIEW.md`, so the author's agent can read the outcome. Accepting is then git: apply
+the skill to the package repo, commit, bump the version, release.
+
 ## Release
 
 ```text
-python maintainer/release.py --dry-run --package <dir> [--min-version <ver>] [--out dist]
+python maintainer/release.py --dry-run --package <dir> [--min-version <ver>] [--out dist]     # build only
+python maintainer/release.py --upload  --package <dir> [--min-version <ver>] [--out dist]     # build and publish
 ```
 
-Omit `--package` to build the Skills Hub zip from `framework/`. Upload is not implemented yet; see [`design.md`](design.md#status).
+Omit `--package` to build (or release) the Skills Hub zip from `framework/`. The framework tree names no real
+person: `package.json` and the three framework skills carry the placeholder `r&d@example.com`, and a framework
+release writes the deployment's maintainer into the zip instead (`--maintainer`, else the account in the Drive
+registry); a test fails if a real address is edited into `framework/`. `--upload` puts the zip in the
+package's Published drive under `releases/` as a new immutable file (the same version twice is refused), compares
+Drive's `sha256Checksum` with the local hash, and only then rewrites `current.json` in place (its file ID never
+changes). A content release also writes the pointer's ID into `index.json` on the Skills Hub drive; every release
+refreshes the START HERE docs. Then tag the repo (`git tag v<version>`).
+
+## The Drive side (maintainers)
+
+The maintainer signs in once with their own Google account: `gcloud auth login <email> --enable-gdrive-access`
+(Google's own client; the Drive scope is needed to create Shared Drives). `maintainer/drive.py` takes the access
+token from gcloud; nothing is stored but names and file IDs, in `~/.config/skills-hub/drives.json`.
+
+```text
+python maintainer/setup_drive.py --account <email> hub          # "Skills Hub — Published": releases/, index.json, START HERE
+python maintainer/setup_drive.py package --package <dir>        # "<title> — Published" and "<title> — Submissions"; registers it in index.json
+python maintainer/setup_drive.py start-here                     # rewrite the START HERE docs with the current IDs
+python maintainer/setup_drive.py share --hub --user <group or email> --role reader                 # users read
+python maintainer/setup_drive.py share --package <slug> --user <group or email> --role reader
+python maintainer/setup_drive.py share --package <slug> --submissions --user <group or email> --role writer  # authors submit
+python maintainer/setup_drive.py share --package <slug> --user <email> --role organizer            # a maintainer (also --hub, --submissions)
+python maintainer/setup_drive.py show
+```
+
+A Shared Drive's members are people or Google Groups, never a whole domain (Drive refuses it), so "everyone in
+the org" is a Google Group the Workspace admin owns, added once as a reader. `--domain` only works with `--my-drive`
+layouts. Every command reuses what already exists by name, so it is safe to run again. `--my-drive` builds the same
+layout as folders in the account's My Drive, for an account that may not create Shared Drives.
 
 A content release adds the sync gate to every script and refuses one that the gate pushes over 64 KiB.
 Every release blocks users' scripts until they sync, so `--min-version` no longer changes what they can run.

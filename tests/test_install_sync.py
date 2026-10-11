@@ -222,3 +222,67 @@ class SyncTest(ToolTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MarketplaceTest(unittest.TestCase):
+    def test_install_writes_the_local_marketplace(self):
+        """Claude Code registers <root> once; install.py keeps .claude-plugin/marketplace.json listing every tree."""
+        import json
+        import tempfile
+        from pathlib import Path
+
+        from helpers import FIXTURES, MAINTAINER, run, tool
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            out = Path(tmp) / "dist"
+            self.assertEqual(run(MAINTAINER / "release.py", "--dry-run", "--package", FIXTURES / "domain-sample", "--out", out).returncode, 0)
+            current = json.loads((out / "domain-sample" / "current.json").read_text())
+            zip_path = next((out / "domain-sample").glob("*.zip"))
+            b64 = Path(tmp) / "zip.b64"
+            import base64
+            b64.write_text(base64.b64encode(zip_path.read_bytes()).decode())
+            result = run(tool("install"), "--package", "domain-sample", "--sha256", current["zip_sha256"], "--base64-file", b64, "--root", root)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            market = json.loads((root / ".claude-plugin" / "marketplace.json").read_text())
+            self.assertEqual([p["name"] for p in market["plugins"]], ["domain-sample"])     # no framework tree yet
+            self.assertEqual(market["plugins"][0]["source"], "./packages/domain-sample/current")
+            # with a framework tree in place it is listed first
+            fw = root / "framework" / "current" / ".claude-plugin"
+            fw.mkdir(parents=True)
+            (fw / "plugin.json").write_text(json.dumps({"name": "skills-hub", "version": "9.9.9", "description": "d"}))
+            import sys
+            sys.path.insert(0, str(tool("common").parent))
+            from common import write_marketplace
+            market = json.loads(write_marketplace(root).read_text())
+            self.assertEqual([p["name"] for p in market["plugins"]], ["skills-hub", "domain-sample"])
+            self.assertEqual(market["plugins"][0]["version"], "9.9.9")
+
+
+class RawZipAndRootTest(unittest.TestCase):
+    def test_from_tool_result_accepts_the_raw_zip_and_skills_hub_root_is_the_default(self):
+        """Claude Science's kernel saves the zip's bytes, not the connector's JSON envelope; and its root comes
+        from SKILLS_HUB_ROOT because ~ does not persist there."""
+        import json
+        import os
+        import subprocess
+        import sys
+        import tempfile
+        from pathlib import Path
+
+        from helpers import FIXTURES, MAINTAINER, run, tool
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "dist"
+            self.assertEqual(run(MAINTAINER / "release.py", "--dry-run", "--package", FIXTURES / "domain-sample", "--out", out).returncode, 0)
+            current = json.loads((out / "domain-sample" / "current.json").read_text())
+            zip_path = next((out / "domain-sample").glob("*.zip"))
+            root = Path(tmp) / "workspace" / ".skills-hub"
+            env = dict(os.environ, SKILLS_HUB_ROOT=str(root), PYTHONSAFEPATH="1")
+            result = subprocess.run([sys.executable, str(tool("install")), "--package", "domain-sample", "--sha256",
+                                     current["zip_sha256"], "--from-tool-result", str(zip_path)],
+                                    capture_output=True, text=True, env=env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((root / "state.json").exists(), "installed under SKILLS_HUB_ROOT with no --root")
+            doctor = subprocess.run([sys.executable, str(tool("doctor"))], capture_output=True, text=True, env=env)
+            self.assertIn("domain-sample 0.1.0", doctor.stdout)

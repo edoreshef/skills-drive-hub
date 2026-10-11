@@ -2,13 +2,19 @@
 
 import hashlib
 import json
+import os
 import re
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-DEFAULT_ROOT = Path.home() / ".skills-hub"
+# The install root: ~/.skills-hub, or SKILLS_HUB_ROOT where ~ is not a place that persists (Claude Science's sandbox
+# gives each cell a fresh home; its workspace directory persists, so START HERE sets SKILLS_HUB_ROOT inside it).
+DEFAULT_ROOT = Path(os.environ.get("SKILLS_HUB_ROOT") or Path.home() / ".skills-hub").expanduser()
 HUB_SLUG = "skills-hub"
+# The framework tree names no real person: package.json and the framework skills carry this address, and
+# release.py writes the deployment's maintainer into the zip in its place.
+MAINTAINER_PLACEHOLDER = "r&d@example.com"
 
 SLUG_RE = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 CONFLICT_COPY_RE = re.compile(r" \(\d+\)(\.[^.]*)?$")
@@ -186,6 +192,38 @@ def write_entries(zip_path, entries):
             info.compress_type = compression
             info.external_attr = 0o644 << 16
             archive.writestr(info, data)
+
+
+def write_marketplace(root):
+    """<root>/.claude-plugin/marketplace.json: the local directory marketplace Claude Code registers once
+    (`claude plugin marketplace add <root>`). One plugin per installed tree: framework/current and every
+    packages/<slug>/current that has a plugin.json. Rewritten after every install, so swapping `current` is the
+    update and a new package appears as a new plugin."""
+    root = Path(root)
+    plugins = []
+    trees = [root / "framework" / "current"]
+    packages = root / "packages"
+    if packages.is_dir():
+        trees += sorted(p / "current" for p in packages.iterdir() if (p / "current").is_dir())
+    for tree in trees:
+        manifest = tree / ".claude-plugin" / "plugin.json"
+        if not manifest.is_file():
+            continue
+        try:
+            meta = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        plugins.append({"name": meta.get("name") or tree.parent.name,
+                        "source": "./" + tree.relative_to(root).as_posix(),
+                        "description": meta.get("description", ""),
+                        "version": meta.get("version", "")})
+    marketplace = {"name": "skills-hub", "owner": {"name": "Skills Hub"},
+                   "description": "Skill packages shared through Google Drive, installed and kept current by Skills Hub.",
+                   "plugins": plugins}
+    target = root / ".claude-plugin" / "marketplace.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(marketplace, indent=2) + "\n", encoding="utf-8")
+    return target
 
 
 def tree_files(directory):
