@@ -1,0 +1,5 @@
+# Changelog
+
+## 0.1.0
+
+Test fixture: one skill without a script.

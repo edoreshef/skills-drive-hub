@@ -1,0 +1,9 @@
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+dist/
+docs/explainer/node_modules/
+docs/explainer/out/
+docs/explainer/narration/_txt/
+docs/explainer/public/audio/
+docs/explainer/public/audio_v1/

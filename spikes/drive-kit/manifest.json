@@ -1,0 +1,29 @@
+{
+  "files": [
+    {
+      "path": "tricky.py",
+      "sha256": "0517f81d7097048ea6c21c23beff20397d40abea522048454d5b98d34805f025",
+      "bytes": 230
+    },
+    {
+      "path": "tricky.md",
+      "sha256": "c915dc92773e5073abd0499ebc3f4aa0c9ae53ae37c88cd01569dcd4276a8867",
+      "bytes": 170
+    },
+    {
+      "path": "tricky.json",
+      "sha256": "2c8e28200df1cdd7d54f043e7fbadc4de413c076eeba26cd5132582b6691d09c",
+      "bytes": 130
+    },
+    {
+      "path": "crlf.txt",
+      "sha256": "1fd4bdcae242cd3f84c1546575d3df80e44ca5516edfb536f3a6ffa42ba20675",
+      "bytes": 31
+    },
+    {
+      "path": "large.py",
+      "sha256": "8bf04172acdf845ca83c71a48f96af184385646c08449c525416c57bddc54307",
+      "bytes": 50670
+    }
+  ]
+}
