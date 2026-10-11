@@ -12,6 +12,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # PYTHONSAFEPATH-proof: common.py lives next to this file
 from common import tree_files
 
 PLACEHOLDER = re.compile(r"__[A-Z]+__")

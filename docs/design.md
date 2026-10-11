@@ -26,7 +26,7 @@ Evidence for the spike references (S1–S10) is in [`spikes/README.md`](../spike
 | Each package has one mutable file, `current.json`, with a fixed file ID. Releases are new immutable zips. `current.json` is rewritten last, by a Drive API media update. | The connector's `update_file` cannot change bytes (S2). Writing the pointer last means a half-uploaded release is never pointed at. |
 | `install.py` checks sha256 and size before writing anything, then swaps `staging → current`. | A `current.json` is copied by the model, and a host can change how it returns results. The hash catches a bad copy (S1, S9). |
 | Release zips are padded to at least 64 KiB with a stored `padding.bin`, which install drops. Agents never retype a zip. | Claude Code returns a result of up to 50,000 characters inline. A 26 KB zip came back inline, and the model's copy took 17 minutes and was wrong. A larger zip is saved to a file that the tools read directly (S9). |
-| Two Shared Drives per package: Published (users read) and Submissions (authors write). | A Shared Drive role applies to every folder in it. A maintainer of one package must not be able to write another package or the framework. |
+| Two Shared Drives per package: Published (users read) and Submissions (authors write). Members are people or a Google Group; Drive refuses domain-wide sharing on a Shared Drive (tested 2026-10-11). | A Shared Drive role applies to every folder in it. A maintainer of one package must not be able to write another package or the framework. "All users" is one Group added as Viewer. |
 | Only the framework zip carries the installer. A content zip containing `tools/install.py` is refused at release and at install. | A domain release must not be able to replace the installer. |
 | Scripts never contain credentials and never write to a data source. A script may read data with the user's own token from `~/.config/<org>/`, outside every package and outside `~/.skills-hub/`; `check.py` warns on the literal path and on network imports, and the maintainer accepts those warnings for such a script. (Until 2026-10-11 the rule was that scripts never fetch data at all.) | The foundation package is also the reference code for reaching the organization's data, and a program such as a dashboard imports it. The token is per user and SSO-gated like the host's connectors. A skill still documents the connector route for hosts where Python has no network (Claude Science). |
 | Released scripts carry a sync gate. A content script runs only if its package was checked within 24 hours and no newer version is pending. `release.py` adds the gate; the package repos never have it. | Skills must stop working when they may be out of date, and prose instructions do not enforce that. Injecting at release keeps authors' sources and tests ungated. |
@@ -125,12 +125,14 @@ A gated script checks its own package before it does anything else:
 
 - Under `<root>/packages/<slug>/current/` (Claude Code, and Cursor through its symlink) it reads that root's `state.json` and fails closed. A missing or damaged file or record blocks it.
 - Anywhere else, it reads `~/.skills-hub/state.json` if that exists and fails closed the same way. This covers a copy run from Claude Code's plugin cache.
-- With no `~/.skills-hub` at all, which is Claude Science's sandbox, it prints a warning and runs. This interim rule holds until spike S10 settles where Science keeps sync state.
+- With `SKILLS_HUB_ROOT` set (Claude Science: a workspace path, since `~` does not persist there) it reads that root's `state.json` and fails closed.
+- With neither, it prints a warning and runs.
 
 It blocks, with exit code 75 and one stderr line telling the agent to run sync, when `last_check` is over 24 hours old, in the future, or unreadable, or when `pending_version` is set.
 
 Every newer version now blocks scripted skills until it is installed, so `min_version` no longer
-changes what users can run. `sync.py` still reports it, and `current.json` keeps the field.
+changes what users can run. `sync.py` still reports it, and `current.json` keeps the field. It is the oldest
+version *of that package* a user may keep using, not a framework version (an agent read it the other way, S12).
 
 Skills with no script are not gated. The gate is a guardrail against using stale skills by
 accident, not a security control: an agent can edit `state.json` or work around the script.
@@ -177,22 +179,25 @@ Built and tested locally: every tool in `framework/tools/`, the three framework 
 maintainer tools, dry-run releases, and the sync gate in released scripts, exercised against the two fixture packages. START HERE
 and sync also ran end to end through the claude.ai connector on the Claude Code CLI (S9).
 
+Built 2026-10-11 and run against a real Google Workspace (the first organization, Shared Drives): `maintainer/setup_drive.py`
+(the drives, folders, START HERE docs, `index.json`), `release.py --upload` (immutable zip, `sha256Checksum` check,
+`current.json` media update in place; a second release of the same version refused), and the user side replayed from
+the real artifacts: START HERE steps 3–8, then a release bump → `sync.py` marks `pending_version` → a gated script
+exits 75 → zip sync → the script runs. Drive returned `sha256Checksum` for every upload to a Shared Drive.
+
 Not built:
 
-- Upload in `release.py` (Drive API upload, `sha256Checksum` check, `current.json` update). Only `--dry-run` exists.
 - Installing or syncing Skills Hub itself. START HERE installs it with a manual decode and hash check; `install.py` and `sync.py` handle content packages only.
-- The Claude Science adapter (download in the kernel, `host.skills` edit and publish).
 
 Not tested:
 
 - The largest result `download_file_content` can return. 313,125 characters worked (S9).
 - `uv` install without admin on macOS and Windows, behind a proxy, or with Defender.
-- `sha256Checksum` on a Shared Drive, and that a maintainer of one package cannot write another's Published drive.
-- Two plugins in one Claude Code local marketplace, and marketplace registration from the desktop app.
+- That a maintainer of one package cannot write another's Published drive (`sha256Checksum` on a Shared Drive: tested, works).
+- Marketplace registration from the desktop app (two plugins in one local marketplace: tested, S11).
 - Whether Cursor's `sessionStart` hook output reaches the agent. Until it does, Cursor users run sync by hand.
-- Whether the Claude Science sandbox can write its own grants. Until it can, START HERE sets them from the host.
-- Where Claude Science can keep sync state that every published skill's scripts can read (S10). Until then, gated scripts run there with a warning.
-- The sync gate through the real hosts. It is tested locally with `uv run --script`, not yet in Claude Code or Cursor sessions.
+- Whether the Claude Science sandbox can write its own grants. Until it can, START HERE sets them from the host (the maintainer's browser session can, S12).
+- The sync gate in Cursor sessions (Claude Code: tested, S11).
 - Windows junctions in `link.py`.
 
 Decided 2026-10-11: the foundation package is `<org>-foundation` (its own repo). It owns the

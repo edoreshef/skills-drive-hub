@@ -44,7 +44,8 @@ framework/          exactly what ships in the skills-hub zip
   hooks/            SessionStart: stale reminder (Claude Code)
   tools/            install, sync, link, doctor, stale, check, draft, publish, feedback
   templates/        new package and new skill
-maintainer/         release, review, collect-feedback (run by package maintainers, not shipped);
+maintainer/         release (--dry-run | --upload), review, decide, collect-feedback (run by package maintainers, not shipped);
+                    setup_drive and drive, the Drive side (Shared Drives, START HERE, index.json);
                     gate, the sync gate release adds to every content script
 fixtures/packages/  two sample packages with different maintainers, used by the tests
 tests/              end-to-end tests that run each tool as a subprocess
@@ -63,7 +64,7 @@ The tools are Python 3.9+ standard library only.
 
 ```text
 python -m unittest discover -s tests
-python maintainer/release.py --dry-run --out dist                                       # skills-hub zip
+python maintainer/release.py --dry-run --out dist                                       # skills-hub zip (--upload to publish; docs/authoring.md)
 python maintainer/release.py --dry-run --package fixtures/packages/domain-sample --out dist
 ```
 

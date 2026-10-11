@@ -19,7 +19,8 @@ import json
 import sys
 from pathlib import Path
 
-import install
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # PYTHONSAFEPATH-proof: common.py lives next to this file
+import install  # noqa: E402
 from common import DEFAULT_ROOT, installed_version, load_state, save_state, utc_now
 
 
