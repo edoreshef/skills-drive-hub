@@ -50,8 +50,41 @@ If the agent composes its own command instead, the rules stop matching. Rules fo
 
 ## Cursor
 
-Drive: Cursor has no claude.ai connectors. It needs a Google Drive MCP, not chosen yet; `spikes/drive-mcp/` shows the
-tool surface such a server must offer (tested with headless Claude Code, S11).
+Drive: Cursor has no claude.ai connectors. Use Google's own remote Drive MCP server, added once to
+`~/.cursor/mcp.json` (S13):
+
+```json
+{
+  "mcpServers": {
+    "google-drive-direct": {
+      "type": "http",
+      "url": "https://drivemcp.googleapis.com/mcp/v1"
+    }
+  }
+}
+```
+
+Cursor reads the file without a restart and lists the entry under Settings > Tools & MCP. Click Authenticate on its
+**Local** row and sign in as the Google account that is a member of the drives; it need not be the Cursor account.
+Ignore the **Cloud** row: it only serves Cursor's cloud agents, and its sign-in fails because Google rejects Cursor's
+own OAuth app ("Access blocked: Authorization Error", `invalid_request`).
+
+Google's server offers the connector's five tools under the same names (`search_files`, `get_file_metadata`,
+`read_file_content`, `download_file_content`, `create_file`), plus `copy_file`, `get_file_permissions` and
+`list_recent_files`, so START HERE reads the same in Cursor. Whether `download_file_content` is byte-exact there,
+as S1 found for the connector, is not measured yet.
+
+Do not use Cursor's **Google Drive plugin**. Since 1.0.1 (2026-09-28) it points at Cursor's relay,
+`https://api.cursor.com/rest-mcp/google-drive/mcp`, not at Google, and the relay rejects every sign-in: the Google
+consent completes, the callback on `localhost:8787` is received, Cursor logs `MCP OAuth callback exchange completed`
+and `tokens persisted`, then the relay answers `401 {"error":"unauthorized"}` and Cursor logs
+`Server returned 401 after successful authentication`. The UI shows "Exchanging token..." for a few minutes, then
+"Authenticate" again, whichever Google account was used. Cursor's forum has the same trace for its Atlassian plugin,
+escalated without a fix. Disable the plugin if it is installed: with both enabled the settings list shows two entries
+called `google-drive`, a sign-in started from the wrong one goes through the relay, and the agent sees two sets of
+Drive tools. That is why the direct entry is named `google-drive-direct`. The trace is in
+`~/.config/Cursor/logs/<session>/mcp-server-plugin-google-drive-google-drive.log`; each HTTP exchange with its status
+is in `window*/exthost/anysphere.cursor-always-local/Cursor Structured Logs*.log` under the same session.
 
 Cursor reads `~/.claude/skills` and `~/.cursor/skills`, follows symlinks, and loads nested skill folders. Link every installed package with:
 
@@ -67,9 +100,9 @@ out of the incoming package's link.
 Script commands are the same as Claude Code. Cursor's command allowlist has not been measured.
 Whether a `sessionStart` hook can add text to the agent is untested, so users run sync when versions look old.
 The sync gate works the same as on Claude Code: the script resolves the `~/.cursor/skills/<slug>` link to
-`~/.skills-hub` and blocks when the package is stale. Until a Drive MCP is chosen, a blocked Cursor user
-cannot sync from Cursor; only a host with the Drive connector, such as Claude Code on the same
-machine, can unblock them.
+`~/.skills-hub` and blocks when the package is stale. With the Drive MCP above a blocked Cursor user can run sync from
+Cursor; the agent-driven START HERE and sync have not yet been run end to end in Cursor (S13 covers the connection
+and the tool surface only).
 
 ## macOS (Claude Code and Cursor)
 

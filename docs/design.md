@@ -213,4 +213,4 @@ Open decisions:
 - A per-zip size budget, if one fetch cannot carry a whole package.
 - A backup reviewer for each package.
 - How a skill owner hears about a non-owner edit (v1: the maintainers message them).
-- Which remote Google Drive MCP Cursor users add. Cursor has no claude.ai connectors, so this blocks Cursor distribution.
+- Decided 2026-10-12: Cursor users add Google's own remote Drive MCP server to `~/.cursor/mcp.json` (hosts.md, S13); Cursor's Google Drive plugin cannot sign in since it moved to Cursor's relay. Still open: byte-exactness of its `download_file_content`, and an agent-driven START HERE and sync in Cursor.
