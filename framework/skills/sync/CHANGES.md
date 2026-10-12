@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-12
+
+Mac: when `python3` is not a usable Python (no Command Line Tools), run the tools through `uv`'s own Python.
+
 ## 2026-10-11
 
 Also triggered when a skill script is blocked by the sync gate.

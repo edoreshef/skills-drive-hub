@@ -10,8 +10,10 @@ data_sources: none
 Ask which package, which skill, the question, whether it worked, and an optional note. Ask for consent to write that down. If the user does not consent, stop. If they consent, run:
 
 ```text
-python ~/.skills-hub/framework/current/tools/feedback.py --dest <feedback-dir> --package <package> --skill <skill> --author <email> --question "<question>" --worked yes --consent --root ~/.skills-hub
+python3 ~/.skills-hub/framework/current/tools/feedback.py --dest <feedback-dir> --package <package> --skill <skill> --author <email> --question "<question>" --worked yes --consent --root ~/.skills-hub
 ```
+
+If `python3 --version` does not print Python 3.9 or later, or on a Mac where `xcode-select -p` fails (there `python3` opens an install dialog; never run it), run it as `uv run --python-preference only-managed --script <tool>.py` with the same arguments.
 
 Use `--worked no` when it did not work. Upload the JSON file with `create_file` to that package's `feedback/` folder.
 

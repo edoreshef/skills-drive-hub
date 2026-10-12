@@ -192,7 +192,8 @@ Not built:
 Not tested:
 
 - The largest result `download_file_content` can return. 313,125 characters worked (S9).
-- `uv` install without admin on macOS and Windows, behind a proxy, or with Defender.
+- `uv` install without admin on macOS and Windows, behind a proxy, or with Defender. The tools on `uv`'s own Python
+  (`--python-preference only-managed`, the route for a Mac without Command Line Tools) ran on Linux only.
 - That a maintainer of one package cannot write another's Published drive (`sha256Checksum` on a Shared Drive: tested, works).
 - Marketplace registration from the desktop app (two plugins in one local marketplace: tested, S11).
 - Whether Cursor's `sessionStart` hook output reaches the agent. Until it does, Cursor users run sync by hand.
