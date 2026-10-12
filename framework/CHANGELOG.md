@@ -2,7 +2,7 @@
 
 ## 0.1.5
 
-2026-10-12: Mac, before the first Oddity user (Mac installs are not measured yet). START HERE step 2 looks before it
+2026-10-12: Mac, before the first user (Mac installs are not measured yet). START HERE step 2 looks before it
 changes anything, installs `uv` into the home folder by two named routes (the official installer, else an existing
 Homebrew) and otherwise stops; no `sudo`, nothing that opens a system dialog. Where `python3` is not a usable Python, as
 on a Mac without Apple's Command Line Tools (running it opens their install dialog), START HERE and the `sync`,

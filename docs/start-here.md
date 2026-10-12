@@ -13,7 +13,7 @@ in the kernel: a download arrives as a Python value, so decode its `content` the
 the "zip came back inline" rule in step 3 is for Claude Code and does not apply. The sandbox sets `PYTHONSAFEPATH`,
 which the tools tolerate; run them as `python3 <root>/framework/current/tools/<tool>.py`.
 
-1. Confirm Google Drive is connected for this host.
+1. Confirm Google Drive is connected for this host. Cursor: that is Google's Drive MCP server in `~/.cursor/mcp.json`, authenticated on its Local row (see hosts.md), not Cursor's Google Drive plugin, whose sign-in never completes.
 2. Claude Science: set the `skill_edit` and `skill_publish` grants from the host (see hosts.md). Claude Code and Cursor: get `uv` and choose the tool command, as follows.
    - Look first and change nothing: `uv --version`, `~/.local/bin/uv --version`; on a Mac also `sw_vers -productVersion`, `uname -m` and `xcode-select -p`.
    - No `uv`: ask the user, then install it into their home folder, stopping at the first route that works. First the official installer, `curl -LsSf https://astral.sh/uv/install.sh | sh` (it writes `~/.local/bin/uv`); if that is blocked (a proxy, security software), `brew install uv`, but only when `brew --version` already works. If both fail, stop and tell the user what each said; try nothing else. Never `sudo`, never write outside the home folder, never run anything that opens a system dialog or asks for an administrator password. A new `uv` is not on the `PATH` until a new shell: call it as `~/.local/bin/uv` for the rest of this install.

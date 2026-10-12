@@ -29,7 +29,8 @@ and the old framework plugin name, `framework` (now `skills-hub`).
 | S9 install and sync through the connector | **Pass** at the default limit with zips padded to 64 KiB, and with `MAX_MCP_OUTPUT_TOKENS=2000`. **Fail** at the default without padding: a 26 KB zip came back inline and the model's copy of it was wrong. | Claude Code CLI 2.1.288, Linux, My Drive, 2026-10-10 |
 | S10 Claude Science sync state | **Answered by S12.** A workspace-relative file is shared by kernel and shell and persists, but is not reachable by a relative path from a published skill's `scripts/`, and the published skills mount is read-only. So the state lives at `SKILLS_HUB_ROOT=<workspace>/.skills-hub` and the gate reads that variable (0.1.4). | Claude Science 0.1.60, Linux, 2026-10-11 |
 | S12 agent-driven START HERE in Claude Science, real Shared Drives | **Pass**, with findings fixed in 0.1.4: all nine skills published byte-exact (39 files), hashes matched first time, doctor ok, a published script ran; 28 tool calls, 48 approval cards (all auto-allowed by the two grants), about 12 min. Found: `~` is a per-cell tmpfs; `PYTHONSAFEPATH=1` broke `python3 <abs>/install.py`; `--from-tool-result` refused raw zip bytes; the inline-zip stop rule is Claude-Code-only. | Claude Science 0.1.60, Linux, the daemon's web UI driven by Playwright, 2026-10-11 |
-| S11 agent-driven START HERE and sync against real Shared Drives | **Pass.** Headless Claude Code followed the START HERE Doc end to end (13–16 tool calls, ~3 min), then the installed `sync` skill moved the foundation 0.1.2 → 0.1.3 (9 calls). Both zips saved to files at the default output limit; hashes matched first time; gated scripts ran with zero prompts under the documented allow rules and were denied without them. Found and fixed: no tool wrote `marketplace.json`; step 7 gave no commands. | Claude Code CLI 2.1.288, Linux, Oddity Labs Shared Drives: first through `spikes/drive-mcp`, then through the real claude.ai connector (START HERE 16 calls, 100 s; sync 6 calls), 2026-10-11 |
+| S11 agent-driven START HERE and sync against real Shared Drives | **Pass.** Headless Claude Code followed the START HERE Doc end to end (13–16 tool calls, ~3 min), then the installed `sync` skill moved the foundation 0.1.2 → 0.1.3 (9 calls). Both zips saved to files at the default output limit; hashes matched first time; gated scripts ran with zero prompts under the documented allow rules and were denied without them. Found and fixed: no tool wrote `marketplace.json`; step 7 gave no commands. | Claude Code CLI 2.1.288, Linux, the first organization's Shared Drives: first through `spikes/drive-mcp`, then through the real claude.ai connector (START HERE 16 calls, 100 s; sync 6 calls), 2026-10-11 |
+| S13 Cursor Drive MCP | **Pass** for the connection: Google's remote Drive MCP server (`drivemcp.googleapis.com/mcp/v1`) in `~/.cursor/mcp.json`, Local sign-in with the drives' Google account, 8 tools including the connector's five by name. **Fail:** Cursor's Google Drive plugin 1.0.1, which routes through `api.cursor.com`: `401 after successful authentication` on every attempt. Its Cloud row fails too (Google rejects Cursor's OAuth app). Fidelity and the end-to-end START HERE not run. | Cursor 3.15.6, Linux, plugin 1.0.1, 2026-10-12 |
 
 ## S1, S2 — Google Drive connector (claude.ai)
 
@@ -136,8 +137,8 @@ change the gate's "no `~/.skills-hub`" branch to read that path and fail closed.
 
 ## S11 — Agent-driven START HERE and sync, real Shared Drives
 
-Setup: the framework and `odditylabs-foundation` released with `release.py --upload` to the Shared Drives
-`setup_drive.py` made (Google Workspace, Oddity Labs). The CLI's claude.ai login had no Drive connector, and its
+Setup: the framework and `<org>-foundation` released with `release.py --upload` to the Shared Drives
+`setup_drive.py` made (Google Workspace, the first organization). The CLI's claude.ai login had no Drive connector, and its
 Google account cannot see those drives, so `spikes/drive-mcp/server.py` stood in for the connector (same five tools,
 same result shapes, `--strict-mcp-config`). Headless `claude -p --dangerously-skip-permissions`, told to read the
 START HERE Doc by file ID and to use `/tmp/e2e/skills-hub` as the root.
@@ -148,13 +149,13 @@ START HERE Doc by file ID and to use `/tmp/e2e/skills-hub` as the root.
   true: `design.md` listed `marketplace.json` but no tool wrote it. Fixed in 0.1.3 (`install.py` writes
   `<root>/.claude-plugin/marketplace.json`; START HERE step 7 gives the commands and rules).
 - **Run 2 (framework 0.1.3):** 16 calls, nothing not smooth. `claude plugin marketplace add <root>` and
-  `claude plugin install skills-hub@skills-hub` / `odditylabs-foundation@skills-hub` succeeded; `claude plugin validate`
+  `claude plugin install skills-hub@skills-hub` / `<org>-foundation@skills-hub` succeeded; `claude plugin validate`
   passed the generated marketplace file (warnings about missing author fields only). The agent noted that the plugin
   commands themselves write `extraKnownMarketplaces` and `enabledPlugins` into `~/.claude/settings.json`.
 - **Loading:** a fresh session saw all nine skills (six foundation, three framework). Without allow rules every
   attempt to run or read a skill script was denied (as S7). With `Bash(uv run --script <root>/*)` and
   `Read(<root>/**)` both gated scripts ran with zero prompts; `uv` resolved the Google pins.
-- **Sync:** after `odditylabs-foundation` 0.1.3 was released, a session running the installed `sync` skill
+- **Sync:** after `<org>-foundation` 0.1.3 was released, a session running the installed `sync` skill
   downloaded `current.json` by the ID in `state.json`, was told a zip was required, downloaded it (saved to a file),
   installed 0.1.3 (`previous/` kept), ran doctor: 9 tool calls. The agent also observed, correctly, that the gate
   cannot block before a check has run: a script run just before sync still passed. That is the design.
@@ -162,7 +163,7 @@ START HERE Doc by file ID and to use `/tmp/e2e/skills-hub` as the root.
   (fixed, foundation 0.1.3). `publish.py` glued the CHANGES.md heading to the previous paragraph (fixed).
 - **Real connector (same day):** the CLI showed no connectors because `CLAUDE_CODE_OAUTH_TOKEN` was set in the shell
   (`[claudeai-mcp] Missing user:mcp_servers scope`); with it unset, the Max login's connectors loaded, and Google Drive
-  (connected at claude.ai to edor@oddity.com) saw the Skills Hub drives. START HERE from scratch: 16 tool calls, about
+  (connected at claude.ai to the drives' Google account) saw the Skills Hub drives. START HERE from scratch: 16 tool calls, about
   100 s, both zips saved to files, hashes matched first time, plugins registered. The `sync` skill: 6 calls, "up to
   date" (the download tool is deferred and needs one ToolSearch first). The agent asked for `python3` in the Doc
   (bare `python` was another project's venv on this machine): changed.
@@ -175,7 +176,7 @@ Setup: the daemon's web UI (`claude-science serve`, v0.1.60) driven headlessly w
 (`claude-science url`), the two `customize_mutation` grants written through `PUT /api/approvals/grants` from the
 UI's own origin (the daemon refuses cross-site writes and needs its `x-operon-csrf` header), then the prompt typed
 into a session of the project whose Drive tool grants already existed. The Drive connector is the claude.ai one
-(edoreshef@gmail.com's account, Google Drive connected to edor@oddity.com).
+(the maintainer's claude.ai account, Google Drive connected to the drives' Google account).
 
 - Steps 1–8: both zips downloaded in the kernel (`download_file_content` returns a dict; no base64 reached the
   conversation), sha256 matched in the kernel and again with `shasum`, `install.py` installed the foundation,
@@ -195,3 +196,37 @@ into a session of the project whose Drive tool grants already existed. The Drive
   10 minutes; a published skill directory is read-only.
 - `/api/frames/<id>` holds the full transcript (`context_data._messages`); a session's status stays `processing`
   while it is open, so poll the last assistant message, not the status.
+
+## S13 — Cursor Google Drive MCP
+
+Question: which Google Drive MCP a Cursor user adds, since Cursor has no claude.ai connectors.
+
+- **Cursor's Google Drive plugin (1.0.1) fails.** Until 2026-09-28 the plugin's `mcp.json` pointed at Google's server,
+  `https://drivemcp.googleapis.com/mcp/v1`; 1.0.1 moved it to Cursor's relay, `https://api.cursor.com/rest-mcp/google-drive/mcp`
+  (`cursor/plugins` PR 421). Five attempts on 2026-10-12 gave the same trace: relay answers 401 and asks for OAuth; Google
+  consent completes; the callback on `localhost:8787` is received (Cursor listens there, `GET /callback` answers 200);
+  `MCP OAuth callback exchange completed`, `tokens persisted` (access token, refresh token, both Drive scopes); Cursor
+  refreshes the token at once (clock in sync, so not an expiry problem); the first `POST` to the relay with the Bearer
+  token gets `401 {"error":"unauthorized"}`; `Auth-related error ... Server returned 401 after successful authentication`;
+  state back to `needsAuth`. The UI shows "Exchanging token..." then "Authenticate". The account used makes no
+  difference. The plugin's **Cloud** row fails earlier: Google shows "Access blocked: Authorization Error,
+  Error 400: invalid_request" for Cursor's own OAuth app. Cursor's forum has the identical trace for the Atlassian
+  plugin, escalated by staff without a fix date; the documented clean sign-in (Logout under Environments > Local,
+  restart, Authenticate) did not help there.
+- **Google's own server passes.** `{"type": "http", "url": "https://drivemcp.googleapis.com/mcp/v1"}` under
+  `mcpServers` in `~/.cursor/mcp.json`. Cursor loaded it within seconds (no restart), marked it `needsAuth` with
+  `Static-client server connected without stored tokens; interactive OAuth required`, and Authenticate on the Local
+  row opened Google's consent. Signed in with the Google account that is a member of the drives, which is not the
+  Cursor account; the callback was received and the entry connected. The server's
+  `/.well-known/oauth-protected-resource/mcp/v1` names `accounts.google.com` as the authorization server and
+  offers scopes `drive`, `drive.readonly`, `drive.file`. Unauthenticated `initialize` and `tools/list` succeed; only
+  tool calls need the token.
+- **Tool surface:** 8 tools: `search_files`, `get_file_metadata`, `read_file_content`, `download_file_content`,
+  `create_file` (the connector's five, same names), `copy_file`, `get_file_permissions`, `list_recent_files`.
+  `download_file_content` is described as base64 of the file, as the connector's is.
+- Naming: with the plugin enabled, the settings list shows two entries called `google-drive`, and a sign-in started from
+  the plugin's entry goes through the relay. The direct entry is therefore named `google-drive-direct`, and the plugin
+  is disabled.
+
+Open: byte-exactness of `download_file_content` on Google's server (repeat S1), and an agent-driven START HERE and sync
+in Cursor (repeat S11). Tested on Cursor 3.15.6, Linux, 2026-10-12.

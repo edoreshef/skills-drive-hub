@@ -3,7 +3,7 @@
     "google_drive": {
       "command": "python3",
       "args": ["/home/user/skills-drive-hub/spikes/drive-mcp/server.py"],
-      "env": {"SKILLS_HUB_DRIVE_ACCOUNT": "edor@oddity.com"}
+      "env": {"SKILLS_HUB_DRIVE_ACCOUNT": "<drive account>"}
     }
   }
 }

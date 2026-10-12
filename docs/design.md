@@ -179,7 +179,7 @@ Built and tested locally: every tool in `framework/tools/`, the three framework 
 maintainer tools, dry-run releases, and the sync gate in released scripts, exercised against the two fixture packages. START HERE
 and sync also ran end to end through the claude.ai connector on the Claude Code CLI (S9).
 
-Built 2026-10-11 and run against a real Google Workspace (Oddity Labs, Shared Drives): `maintainer/setup_drive.py`
+Built 2026-10-11 and run against a real Google Workspace (the first organization, Shared Drives): `maintainer/setup_drive.py`
 (the drives, folders, START HERE docs, `index.json`), `release.py --upload` (immutable zip, `sha256Checksum` check,
 `current.json` media update in place; a second release of the same version refused), and the user side replayed from
 the real artifacts: START HERE steps 3–8, then a release bump → `sync.py` marks `pending_version` → a gated script
@@ -213,4 +213,4 @@ Open decisions:
 - A per-zip size budget, if one fetch cannot carry a whole package.
 - A backup reviewer for each package.
 - How a skill owner hears about a non-owner edit (v1: the maintainers message them).
-- Which remote Google Drive MCP Cursor users add. Cursor has no claude.ai connectors, so this blocks Cursor distribution.
+- Decided 2026-10-12: Cursor users add Google's own remote Drive MCP server to `~/.cursor/mcp.json` (hosts.md, S13); Cursor's Google Drive plugin cannot sign in since it moved to Cursor's relay. Still open: byte-exactness of its `download_file_content`, and an agent-driven START HERE and sync in Cursor.
