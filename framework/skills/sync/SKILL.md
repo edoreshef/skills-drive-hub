@@ -31,4 +31,6 @@ python3 ~/.skills-hub/framework/current/tools/link.py --root ~/.skills-hub
 
 On Claude Science, `~/.skills-hub` means the workspace root in `SKILLS_HUB_ROOT` (START HERE); downloads arrive in the kernel, so decode `content` there and write the bytes to a file. After a package changed, republish its changed skills with `host.skills` (`edit` each file, then `publish`): the published copies are read-only and do not follow the install root.
 
+If `python3 --version` does not print Python 3.9 or later, or on a Mac where `xcode-select -p` fails (there `python3` opens an install dialog; never run it), run each command above as `uv run --python-preference only-managed --script <tool>.py` with the same arguments.
+
 Report the doctor output. Use the downloaded files. Do not retype the zip.

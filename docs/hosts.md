@@ -71,6 +71,19 @@ The sync gate works the same as on Claude Code: the script resolves the `~/.curs
 cannot sync from Cursor; only a host with the Drive connector, such as Claude Code on the same
 machine, can unblock them.
 
+## macOS (Claude Code and Cursor)
+
+Not measured yet; the first users are on Macs, and START HERE asks each Mac install for feedback, smooth or not.
+Two things differ from Linux:
+
+- `python3` without Apple's Command Line Tools is a stub that opens their install dialog (which can need an
+  administrator). `xcode-select -p` tells, without the dialog. Without them, every Skills Hub tool runs as
+  `uv run --python-preference only-managed --script <tool>.py`: `uv` fetches its own Python into the home folder.
+  Skill scripts already run through `uv`. `reference/render_pdf_page.swift` in the foundation's `drive-access` needs
+  the same Command Line Tools.
+- `uv` itself: the official installer (`~/.local/bin/uv`, no administrator) or an existing Homebrew. A proxy or the
+  company's security software may block the installer; START HERE then stops rather than trying other routes.
+
 ## Claude Science
 
 Drive: the claude.ai Google Drive connector. Connect it at `claude.ai/customize/connectors`

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.5
+
+2026-10-12: Mac, before the first user (Mac installs are not measured yet). START HERE step 2 looks before it
+changes anything, installs `uv` into the home folder by two named routes (the official installer, else an existing
+Homebrew) and otherwise stops; no `sudo`, nothing that opens a system dialog. Where `python3` is not a usable Python, as
+on a Mac without Apple's Command Line Tools (running it opens their install dialog), START HERE and the `sync`,
+`feedback` and `publish` skills run each tool as `uv run --python-preference only-managed --script <tool>.py`: `uv`'s
+own Python, no administrator. `feedback` and `publish` say `python3`, not `python`. Step 9 asks for feedback after
+every Mac install, smooth or not. Install, doctor, sync and a gated package script were run this way on Linux (uv 0.10.0).
+
 ## 0.1.4
 
 2026-10-11: what the first Claude Science run found (spike S12). `install.py --from-tool-result` accepts the zip's own

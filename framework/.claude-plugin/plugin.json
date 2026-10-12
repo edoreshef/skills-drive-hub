@@ -1,6 +1,6 @@
 {
   "name": "skills-hub",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Share skill packages through Google Drive: install them, keep them current, and contribute back.",
   "license": "MIT"
 }
