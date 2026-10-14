@@ -5,7 +5,7 @@ Writes <out>/<slug>/<slug>-<version>.zip, manifest.json, and current.json.
 The framework zip is the framework/ directory of this repo. In a content zip every
 skills/<skill>/scripts/*.py carries the sync gate from gate.py.
 
---upload (design.md "Release"): the zip goes into the package's Published drive under releases/ as a new
+--upload (design.md "Release"): the zip goes into the package's releases/ folder as a new
 immutable file (a second upload of the same version is refused), Drive's sha256Checksum is compared with the local
 hash (or the file is downloaded back and hashed), and only then is current.json rewritten in place by a media
 update, so its file ID never changes and a half-uploaded release is never pointed at. A content release also
@@ -181,7 +181,7 @@ def upload(slug, version, zip_path, current, dest, framework, account=None, driv
     # 3. the pointers people read: index.json for a package, START HERE for both
     if not framework:
         setup_drive.update_index(drive, registry)
-    setup_drive.refresh_start_here(drive, registry)
+    setup_drive.refresh_start_here(drive, registry, None if framework else slug)
     save_registry(registry)
     print(f"released package={slug} version={version} zip_file_id={uploaded['id']} current_file_id={pointer['id']}")
     print("now tag the repo:  git tag v" + version)

@@ -11,7 +11,7 @@ This repo is the framework. It holds no skill content; each package has its own 
 
 - **Packages.** Skills are shared in packages. A foundation package holds cross-domain skills,
   and each domain publishes its own package, maintained by that domain's experts. Every package
-  lives on two SSO-gated Shared Drives: one users read from, one they submit to.
+  lives in the Skills Hub Shared Drive, as a folder under `packages/`, with submissions inside that folder.
 - **Get.** The user's agent follows a START HERE doc on Drive. It installs Skills Hub, then the
   packages the user works in, and checks every download against its sha256.
 - **Stay current.** The `sync` skill picks up each package's newest release. A package's scripts

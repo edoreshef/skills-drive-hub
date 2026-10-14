@@ -80,7 +80,7 @@ python maintainer/decide.py accept --package <slug> --zip <name>.zip --review RE
 python maintainer/decide.py reject --package <slug> --zip <name>.zip --review REVIEW.md [--note ...]
 ```
 
-`decide.py` moves the zip from `inbox/` to `accepted/` or `rejected/` on the Submissions drive and uploads the
+`decide.py` moves the zip from `inbox/` to `accepted/` or `rejected/` under `submissions/` and uploads the
 report next to it as `<name>.REVIEW.md`, so the author's agent can read the outcome. Accepting is then git: apply
 the skill to the package repo, commit, bump the version, release.
 
@@ -95,7 +95,7 @@ Omit `--package` to build (or release) the Skills Hub zip from `framework/`. The
 person: `package.json` and the three framework skills carry the placeholder `r&d@example.com`, and a framework
 release writes the deployment's maintainer into the zip instead (`--maintainer`, else the account in the Drive
 registry); a test fails if a real address is edited into `framework/`. `--upload` puts the zip in the
-package's Published drive under `releases/` as a new immutable file (the same version twice is refused), compares
+package's `releases/` folder as a new immutable file (the same version twice is refused), compares
 Drive's `sha256Checksum` with the local hash, and only then rewrites `current.json` in place (its file ID never
 changes). A content release also writes the pointer's ID into `index.json` on the Skills Hub drive; every release
 refreshes the START HERE docs. Then tag the repo (`git tag v<version>`).
@@ -107,20 +107,23 @@ The maintainer signs in once with their own Google account: `gcloud auth login <
 token from gcloud; nothing is stored but names and file IDs, in `~/.config/skills-hub/drives.json`.
 
 ```text
-python maintainer/setup_drive.py --account <email> hub          # "Skills Hub — Published": releases/, index.json, START HERE
-python maintainer/setup_drive.py package --package <dir>        # "<title> — Published" and "<title> — Submissions"; registers it in index.json
+python maintainer/setup_drive.py --account <email> hub          # "Skills Hub": releases/, packages/, index.json, START HERE
+python maintainer/setup_drive.py package --package <dir>        # packages/<slug>/ and packages/<slug>/submissions/; registers it in index.json
+python maintainer/setup_drive.py nest                            # move packages that still have their own drives into packages/
 python maintainer/setup_drive.py start-here                     # rewrite the START HERE docs with the current IDs
 python maintainer/setup_drive.py share --hub --user <group or email> --role reader                 # users read
 python maintainer/setup_drive.py share --package <slug> --user <group or email> --role reader
 python maintainer/setup_drive.py share --package <slug> --submissions --user <group or email> --role writer  # authors submit
-python maintainer/setup_drive.py share --package <slug> --user <email> --role organizer            # a maintainer (also --hub, --submissions)
+python maintainer/setup_drive.py share --package <slug> --user <email> --role fileOrganizer       # a package maintainer: release and review that package
 python maintainer/setup_drive.py show
 ```
 
 A Shared Drive's members are people or Google Groups, never a whole domain (Drive refuses it), so "everyone in
-the org" is a Google Group the Workspace admin owns, added once as a reader. `--domain` only works with `--my-drive`
-layouts. Every command reuses what already exists by name, so it is safe to run again. `--my-drive` builds the same
-layout as folders in the account's My Drive, for an account that may not create Shared Drives.
+the org" is a Google Group the Workspace admin owns, added once as a reader of the Skills Hub drive. A drive member
+can read every package. `--domain` only works with `--my-drive` layouts. Every command reuses what already exists
+by name, so it is safe to run again. `--my-drive` builds the same layout as one folder in the account's My Drive,
+for an account that may not create Shared Drives. `nest` moves an older layout (one drive per package) into
+`packages/<slug>/` and deletes the empty drives.
 
 A content release adds the sync gate to every script and refuses one that the gate pushes over 64 KiB.
 Every release blocks users' scripts until they sync, so `--min-version` no longer changes what they can run.
