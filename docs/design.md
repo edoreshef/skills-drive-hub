@@ -26,7 +26,7 @@ Evidence for the spike references (S1–S10) is in [`spikes/README.md`](../spike
 | Each package has one mutable file, `current.json`, with a fixed file ID. Releases are new immutable zips. `current.json` is rewritten last, by a Drive API media update. | The connector's `update_file` cannot change bytes (S2). Writing the pointer last means a half-uploaded release is never pointed at. |
 | `install.py` checks sha256 and size before writing anything, then swaps `staging → current`. | A `current.json` is copied by the model, and a host can change how it returns results. The hash catches a bad copy (S1, S9). |
 | Release zips are padded to at least 64 KiB with a stored `padding.bin`, which install drops. Agents never retype a zip. | Claude Code returns a result of up to 50,000 characters inline. A 26 KB zip came back inline, and the model's copy took 17 minutes and was wrong. A larger zip is saved to a file that the tools read directly (S9). |
-| Two Shared Drives per package: Published (users read) and Submissions (authors write). Members are people or a Google Group; Drive refuses domain-wide sharing on a Shared Drive (tested 2026-10-11). | A Shared Drive role applies to every folder in it. A maintainer of one package must not be able to write another package or the framework. "All users" is one Group added as Viewer. |
+| One Shared Drive, named Skills Hub. The framework is at its root; each package is a folder under `packages/<slug>/`, with `submissions/` inside that folder. Members are people or a Google Group; Drive refuses domain-wide sharing on a Shared Drive (tested 2026-10-11). | A drive member can read and, with write access, change every package. That is the trade for one place to open. "All users" is one Group added as Viewer on the drive. |
 | Only the framework zip carries the installer. A content zip containing `tools/install.py` is refused at release and at install. | A domain release must not be able to replace the installer. |
 | Scripts never contain credentials and never write to a data source. A script may read data with the user's own token from `~/.config/<org>/`, outside every package and outside `~/.skills-hub/`; `check.py` warns on the literal path and on network imports, and the maintainer accepts those warnings for such a script. (Until 2026-10-11 the rule was that scripts never fetch data at all.) | The foundation package is also the reference code for reaching the organization's data, and a program such as a dashboard imports it. The token is per user and SSO-gated like the host's connectors. A skill still documents the connector route for hosts where Python has no network (Claude Science). |
 | Released scripts carry a sync gate. A content script runs only if its package was checked within 24 hours and no newer version is pending. `release.py` adds the gate; the package repos never have it. | Skills must stop working when they may be out of date, and prose instructions do not enforce that. Injecting at release keeps authors' sources and tests ungated. |
@@ -40,22 +40,20 @@ Evidence for the spike references (S1–S10) is in [`spikes/README.md`](../spike
 ## Drive layout
 
 ```text
-"Skills Hub — Published"                  managers: Skills Hub maintainers; users: Viewer
-├── START HERE (Google Doc)               source: docs/start-here.md
-├── current.json                          fixed file ID
+"Skills Hub"                                         one Shared Drive; managers: Skills Hub maintainers; users: Viewer
+├── START HERE (Google Doc)                          source: docs/start-here.md
+├── current.json                                     fixed file ID, the framework
 ├── releases/skills-hub-<version>.zip
-└── index.json                            per package: slug, title, maintainers, current.json file ID
-
-"<package> — Published"                   managers: that package's maintainers; users: Viewer
-├── START HERE (Google Doc)
-├── current.json                          fixed file ID
-└── releases/<package>-<version>.zip
-
-"<package> — Submissions"                 maintainers: Manager; authors: Contributor
-├── inbox/<skill>__<yyyymmdd-hhmm>__<author>.zip
-├── accepted/   rejected/                 moved here with a REVIEW.md
-├── feedback/<yyyymmdd-hhmm>__<author>__<skill>.json    one file per feedback entry
-└── Feedback (Sheet)                                     collected by maintainers
+├── index.json                                       per package: slug, title, maintainers, current.json file ID
+└── packages/<slug>/
+    ├── START HERE (Google Doc)
+    ├── current.json                                 fixed file ID
+    ├── releases/<package>-<version>.zip
+    └── submissions/
+        ├── inbox/<skill>__<yyyymmdd-hhmm>__<author>.zip
+        ├── accepted/   rejected/                    moved here with a REVIEW.md
+        ├── feedback/<yyyymmdd-hhmm>__<author>__<skill>.json    one file per feedback entry
+        └── Feedback (Sheet)                                    collected by maintainers
 ```
 
 The Skills Hub maintainers update `index.json` when a package is registered. Domains do not write it.
@@ -153,7 +151,7 @@ The next sync on each user's machine brings the release to everyone who has that
 ## Feedback
 
 The `feedback` skill asks which package and skill, asks consent, and writes one JSON file to
-that package's Submissions drive under `feedback/`. `maintainer/collect-feedback.py` turns new
+that package's `submissions/feedback/` folder. `maintainer/collect-feedback.py` turns new
 files into CSV rows for the package's Feedback Sheet.
 
 A first install or a sync that was not smooth is a call for feedback, even when it ended well.
@@ -165,13 +163,13 @@ since the Skills Hub maintainers maintain that package. Consent is still require
 
 ## Security
 
-- Write access to a package's Published drive is that package's trust boundary. The hash detects corruption, not a compromised maintainer: `current.json` and the zip live on the same drive.
-- Domain maintainers are trusted for their package only.
-- Submissions are untrusted. Any Contributor can edit the inbox, so review the snapshot you pulled and check Drive's revision history.
+- Write access to the Skills Hub drive is the trust boundary for every package on it. The hash detects corruption, not a compromised maintainer: `current.json` and the zip live in the same drive.
+- A drive member can reach every package. Folder sharing adds a person to one folder; it does not hide a folder from a drive member.
+- Submissions are untrusted. Anyone who can write `submissions/inbox/` can edit it, so review the snapshot you pulled and check Drive's revision history.
 - Skill prose is instructions to the agent. Review the prose, not only the scripts.
 - No credentials in any package; release and install refuse credential-like files.
 - The sync gate keeps stale scripts from running by accident. It does not stop an agent that edits `state.json` or the script.
-- Keep a second Manager on each Published drive.
+- Keep a second Manager on the Skills Hub drive.
 
 ## Status
 
@@ -194,7 +192,7 @@ Not tested:
 - The largest result `download_file_content` can return. 313,125 characters worked (S9).
 - `uv` install without admin on macOS and Windows, behind a proxy, or with Defender. The tools on `uv`'s own Python
   (`--python-preference only-managed`, the route for a Mac without Command Line Tools) ran on Linux only.
-- That a maintainer of one package cannot write another's Published drive (`sha256Checksum` on a Shared Drive: tested, works).
+- Per-package write isolation. Dropped 2026-10-12: one drive, so a writer on the drive can write every package.
 - Marketplace registration from the desktop app (two plugins in one local marketplace: tested, S11).
 - Whether Cursor's `sessionStart` hook output reaches the agent. Until it does, Cursor users run sync by hand.
 - Whether the Claude Science sandbox can write its own grants. Until it can, START HERE sets them from the host (the maintainer's browser session can, S12).

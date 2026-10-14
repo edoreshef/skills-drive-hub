@@ -38,6 +38,26 @@ class FakeDrive:
         self.drives.append(d)
         return d
 
+    def rename_drive(self, drive_id, name):
+        for d in self.drives:
+            if d["id"] == drive_id:
+                d["name"] = name
+                return d
+        raise KeyError(drive_id)
+
+    def delete_drive(self, drive_id):
+        if any(f["parents"] == [drive_id] for f in self.files.values()):
+            raise RuntimeError(f"drive {drive_id} is not empty")
+        self.drives = [d for d in self.drives if d["id"] != drive_id]
+        return {}
+
+    def move(self, file_id, from_parent, to_parent):
+        f = self.files[file_id]
+        if f["parents"] != [from_parent]:
+            raise RuntimeError(f"{file_id} is not in {from_parent}")
+        f["parents"] = [to_parent]
+        return f
+
     def children(self, parent_id, name=None, drive_id=None):
         return [f for f in self.files.values() if f["parents"] == [parent_id] and (name is None or f["name"] == name)]
 
@@ -98,7 +118,7 @@ class DriveReleaseTest(unittest.TestCase):
     def test_hub_then_package_then_releases(self):
         self.sd.setup_hub(self.fake, self.registry, my_drive=False)
         hub = self.registry["hub"]
-        self.assertEqual([d["name"] for d in self.fake.drives], ["Skills Hub — Published"])
+        self.assertEqual([d["name"] for d in self.fake.drives], ["Skills Hub"])
         self.assertEqual(hub["published_root"], hub["published_drive"])
         for key in ("releases", "index_json", "start_here"):
             self.assertIn(key, hub)
@@ -114,14 +134,16 @@ class DriveReleaseTest(unittest.TestCase):
         self.assertNotIn("<INDEX_JSON_ID>", start)
         self.assertNotIn("not released yet", start.split("## Packages")[0])
 
-        # a content package: two drives, the submission folders, an index.json entry
+        # a content package is a folder under packages/, with submissions/ inside it; still one drive
         pkg = FIXTURES / "domain-sample"
         self.sd.setup_package(self.fake, self.registry, pkg, my_drive=False)
         slug = json.loads((pkg / "package.json").read_text())["package"]
         p = self.registry["packages"][slug]
-        names = [d["name"] for d in self.fake.drives]
-        self.assertIn(f"{p['title']} — Published", names)
-        self.assertIn(f"{p['title']} — Submissions", names)
+        self.assertEqual([d["name"] for d in self.fake.drives], ["Skills Hub"])
+        self.assertEqual(self.fake.files[p["published_root"]]["parents"], [hub["packages"]])
+        self.assertEqual(self.fake.files[p["published_root"]]["name"], slug)
+        self.assertEqual(self.fake.files[p["submissions"]["root"]]["parents"], [p["published_root"]])
+        self.assertIsNone(p["submissions"]["drive"])
         self.assertEqual(sorted(k for k in p["submissions"] if k not in ("root", "drive")),
                          ["accepted", "feedback", "inbox", "rejected"])
         index = json.loads(self.fake.files[hub["index_json"]]["data"])
@@ -147,6 +169,45 @@ class DriveReleaseTest(unittest.TestCase):
         saved = json.loads(Path(os.environ["SKILLS_HUB_REGISTRY"]).read_text())
         self.assertEqual(saved["packages"][slug]["current_json"], p["current_json"])
         self.assertNotIn("token", json.dumps(saved).lower())
+
+    def test_nest_folds_separate_drives_into_the_hub(self):
+        hub_drive = self.fake.create_drive("Skills Hub — Published")
+        releases = self.fake.create_folder("releases", hub_drive["id"])
+        index = self.fake.upload("index.json", hub_drive["id"], b'{"packages": []}\n', "application/json")
+        self.registry["hub"] = {"published_root": hub_drive["id"], "published_drive": hub_drive["id"],
+                                "title": "Skills Hub", "releases": releases["id"], "index_json": index["id"]}
+        pub = self.fake.create_drive("Domain sample — Published")
+        sub = self.fake.create_drive("Domain sample — Submissions")
+        pkg_releases = self.fake.create_folder("releases", pub["id"])
+        current = self.fake.upload("current.json", pub["id"], b"{}\n", "application/json")
+        inbox = self.fake.create_folder("inbox", sub["id"])
+        accepted = self.fake.create_folder("accepted", sub["id"])
+        rejected = self.fake.create_folder("rejected", sub["id"])
+        feedback = self.fake.create_folder("feedback", sub["id"])
+        self.registry["packages"]["domain-sample"] = {
+            "title": "Domain sample", "maintainers": ["domain-lead@example.com"],
+            "published_root": pub["id"], "published_drive": pub["id"], "releases": pkg_releases["id"],
+            "current_json": current["id"],
+            "submissions": {"root": sub["id"], "drive": sub["id"], "inbox": inbox["id"], "accepted": accepted["id"],
+                            "rejected": rejected["id"], "feedback": feedback["id"]}}
+
+        self.sd.nest(self.fake, self.registry)
+
+        self.assertEqual([d["name"] for d in self.fake.drives], ["Skills Hub"])
+        p = self.registry["packages"]["domain-sample"]
+        self.assertEqual(p["current_json"], current["id"])
+        self.assertEqual(p["releases"], pkg_releases["id"])
+        self.assertEqual(p["submissions"]["inbox"], inbox["id"])
+        self.assertEqual(self.fake.files[current["id"]]["parents"], [p["published_root"]])
+        self.assertEqual(self.fake.files[pkg_releases["id"]]["parents"], [p["published_root"]])
+        self.assertEqual(self.fake.files[inbox["id"]]["parents"], [p["submissions"]["root"]])
+        self.assertEqual(self.fake.files[p["published_root"]]["parents"], [self.registry["hub"]["packages"]])
+        self.assertIsNone(p["submissions"]["drive"])
+        # running it again does not create a second tree or a new drive
+        self.sd.nest(self.fake, self.registry)
+        self.assertEqual([d["name"] for d in self.fake.drives], ["Skills Hub"])
+        self.assertEqual(self.registry["packages"]["domain-sample"]["published_root"], p["published_root"])
+        self.assertEqual(self.registry["packages"]["domain-sample"]["current_json"], current["id"])
 
     def test_a_bad_upload_never_moves_current_json(self):
         self.sd.setup_hub(self.fake, self.registry, my_drive=True)

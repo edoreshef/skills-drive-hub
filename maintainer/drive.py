@@ -149,6 +149,16 @@ class Drive:
                 return d
         return self.request("POST", f"{API}/drives", {"requestId": str(uuid.uuid4())}, {"name": name})
 
+    def rename_drive(self, drive_id, name):
+        current = self.request("GET", f"{API}/drives/{drive_id}", {"fields": "id, name"})
+        if current.get("name") == name:
+            return current
+        return self.request("PATCH", f"{API}/drives/{drive_id}", {"fields": "id, name"}, {"name": name})
+
+    def delete_drive(self, drive_id):
+        """Permanently delete a Shared Drive. Drive refuses this while any untrashed item remains."""
+        return self.request("DELETE", f"{API}/drives/{drive_id}")
+
     def create_folder(self, name, parent_id):
         """A folder by name directly under parent; reuses one that already exists."""
         found = [f for f in self.children(parent_id, name) if f["mimeType"] == FOLDER]
