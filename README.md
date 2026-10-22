@@ -44,7 +44,8 @@ framework/          exactly what ships in the skills-hub zip
   hooks/            SessionStart: stale reminder (Claude Code)
   tools/            install, sync, link, doctor, stale, check, draft, publish, feedback
   templates/        new package and new skill
-maintainer/         release (--dry-run | --upload), review, decide, collect-feedback (run by package maintainers, not shipped);
+maintainer/         release (--dry-run | --upload), unpack, review, decide, collect-feedback (run by package maintainers,
+                    not shipped); unpack turns a release back into the source tree (the review baseline);
                     setup_drive and drive, the Drive side (Shared Drives, START HERE, index.json);
                     gate, the sync gate release adds to every content script
 fixtures/packages/  two sample packages with different maintainers, used by the tests

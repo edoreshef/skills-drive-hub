@@ -63,26 +63,40 @@ Check does not judge prose. The maintainer reads it.
 ## Review
 
 ```text
-python maintainer/review.py --package <dir> --skill <skill> --baseline <previous-package-dir> \
-  [--drive-owner <email>] [--drive-modifier <email>]
+python maintainer/decide.py inbox --package <slug>
+python maintainer/unpack.py --package <slug> --out <dir>/baseline
+python maintainer/unpack.py --package <slug> --out <dir>/candidate --submission <name>.zip
+python maintainer/review.py --package <dir>/candidate --skill <skill> --baseline <dir>/baseline \
+  [--drive-owner <email>] [--drive-modifier <email>] > REVIEW.md
 ```
+
+The baseline is the release users have, unpacked from Drive (`unpack.py` checks the zip against its manifest, drops
+the release files and takes the sync gate out of every script), not the package repo, which lags whenever a release
+reached Drive without a commit. The candidate is that tree with the submission laid over its skill; `unpack.py`
+prints the zip's last modifier for `--drive-modifier`.
 
 The report shows the package and its maintainers, owner versus submitter, the rationale from
 `submission.json`, the zip's Drive owner and last modifier, the diff against the baseline, and
-the check findings.
+the check findings. Run `check.py --package <dir>/baseline` too: only the warnings that are new in the candidate
+are about the submission. Check runs a skill's tests but not what the skill produces; when a submission changes
+output (a report, a file), run the old and the new on the same input and compare.
 
 ## Decide
 
 ```text
-python maintainer/decide.py inbox  --package <slug>
-python maintainer/review.py --package <candidate> --skill <skill> --baseline <released package> ... > REVIEW.md
 python maintainer/decide.py accept --package <slug> --zip <name>.zip --review REVIEW.md [--note "<one line for the author>"]
 python maintainer/decide.py reject --package <slug> --zip <name>.zip --review REVIEW.md [--note ...]
 ```
 
 `decide.py` moves the zip from `inbox/` to `accepted/` or `rejected/` under `submissions/` and uploads the
-report next to it as `<name>.REVIEW.md`, so the author's agent can read the outcome. Accepting is then git: apply
-the skill to the package repo, commit, bump the version, release.
+report next to it as `<name>.REVIEW.md`, so the author's agent can read the outcome. Add any edits made on accept
+to REVIEW.md first. Accepting is then git: apply the skill to the package repo (without `submission.json`), commit,
+bump the version, release.
+
+Housekeeping is the releasing maintainer's, never a reason to send a submission back: one `CHANGES.md` entry per
+change (merge duplicates), the package `CHANGELOG.md` entry naming the submitter, the version, the package README's
+skill list, and an inventory skill that lists the organization's sources when a skill reads a new one. Send back,
+or talk it over with the author, only what changes behaviour.
 
 ## Release
 
@@ -99,6 +113,12 @@ package's `releases/` folder as a new immutable file (the same version twice is 
 Drive's `sha256Checksum` with the local hash, and only then rewrites `current.json` in place (its file ID never
 changes). A content release also writes the pointer's ID into `index.json` on the Skills Hub drive; every release
 refreshes the START HERE docs. Then tag the repo (`git tag v<version>`).
+
+Release from a repo that holds the current release: `unpack.py --package <slug> --out <dir>` and compare with the
+checkout (a gate from an older Skills Hub can leave a blank line, nothing else). If Drive is ahead, commit the
+unpacked tree as one catch-up commit tagged with that version before applying anything new. Every maintainer commits
+and tags each release they upload, so the repo stays the record. Test caches (`__pycache__`, `.pytest_cache`) and
+`.git` never ship.
 
 ## The Drive side (maintainers)
 

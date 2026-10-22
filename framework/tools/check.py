@@ -352,8 +352,8 @@ def contains_null(path):
 def warn_size(skill_dir, previous, findings):
     if not previous.is_dir():
         return
-    old = sum(path.stat().st_size for path in previous.rglob("*") if path.is_file())
-    new = sum(path.stat().st_size for path in skill_dir.rglob("*") if path.is_file() and not path.is_symlink())
+    old = sum(path.stat().st_size for path, _ in tree_files(previous))
+    new = sum(path.stat().st_size for path, _ in tree_files(skill_dir))
     if old and new - old > max(4096, old // 2):
         where = skill_dir.relative_to(skill_dir.parents[1]).as_posix()
         findings.append(Finding("warning", where, "large size increase"))

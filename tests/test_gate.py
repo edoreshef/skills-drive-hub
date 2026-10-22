@@ -213,6 +213,16 @@ class GateTest(ToolTest):
         self.assertEqual(nested.returncode, BLOCKED)
         self.assertIn("blocked: package placed-sample", nested.stderr)
 
+    def test_strip_gate_gives_back_the_source(self):
+        sys.path.insert(0, str(MAINTAINER))
+        from gate import add_gate, strip_gate
+        for source in (PLACED, NESTED, '"""Only a docstring."""\n', "print('bare')\n", ""):
+            data = source.encode("utf-8")
+            self.assertEqual(strip_gate(add_gate(data, SLUG)), data, source)
+        older = add_gate(PLACED.encode("utf-8"), SLUG).replace(b"del _skills_hub_gate\n", b"del _skills_hub_gate\n\n")
+        self.assertNotIn(b"_skills_hub_gate", strip_gate(older))
+        self.assertEqual(strip_gate(b"print('no gate')\n"), b"print('no gate')\n")
+
     def test_release_refuses_a_script_the_gate_pushes_over_64_kib(self):
         package = copy_fixture(FIXTURES / SLUG, self.tmp / "big-src", "big-sample")
         script = package / "skills/shared-terms/scripts/echo_marker.py"

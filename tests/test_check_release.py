@@ -14,6 +14,7 @@ from helpers import (
     copy_fixture,
     read_json,
     run,
+    snapshot,
     tool,
     write_json,
     zip_names,
@@ -22,6 +23,7 @@ from helpers import (
 CHECK = tool("check")
 RELEASE = MAINTAINER / "release.py"
 REVIEW = MAINTAINER / "review.py"
+UNPACK = MAINTAINER / "unpack.py"
 
 
 def make_package(directory, slug):
@@ -189,6 +191,30 @@ class ReleaseTest(ToolTest):
         refused = run(RELEASE, "--dry-run", "--package", reserved, "--out", self.tmp / "refused")
         self.assertEqual(refused.returncode, 1)
         self.assertIn("padding.bin is reserved", refused.stderr)
+
+    def test_caches_never_ship_and_unpack_gives_back_the_source(self):
+        package = copy_fixture(FIXTURES / "foundation-sample", self.tmp / "cached", "cached-sample")
+        source = snapshot(package)
+        scripts = package / "skills/shared-terms/scripts"
+        for cache in (scripts / "__pycache__/echo_marker.cpython-312.pyc", package / "skills/shared-terms/.pytest_cache/v"):
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_bytes(b"x" * 20000)
+        sized = run(CHECK, "--package", package, "--baseline", FIXTURES / "foundation-sample")
+        self.assertNotIn("large size increase", sized.stdout)
+
+        out = self.tmp / "dist"
+        self.release(out, package)
+        zip_path = out / "cached-sample/cached-sample-0.1.0.zip"
+        self.assertFalse([name for name in zip_names(zip_path) if "cache" in name])
+        with zipfile.ZipFile(zip_path) as archive:
+            self.assertIn("_skills_hub_gate", archive.read("skills/shared-terms/scripts/echo_marker.py").decode("utf-8"))
+
+        unpacked = self.tmp / "unpacked"
+        result = run(UNPACK, "--zip", zip_path, "--out", unpacked)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("unpacked cached-sample 0.1.0", result.stdout)
+        self.assertEqual(snapshot(unpacked), source)
+        self.assertEqual(run(UNPACK, "--zip", zip_path, "--out", unpacked).returncode, 1)
 
     def test_refuses_broken_packages_and_a_content_installer(self):
         broken = make_package(self.tmp / "broken", "broken")

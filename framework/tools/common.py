@@ -227,7 +227,7 @@ def write_marketplace(root):
 
 
 def tree_files(directory):
-    """Regular files under directory as (path, relative), skipping symlinks, __pycache__ and .git (a package
+    """Regular files under directory as (path, relative), skipping symlinks, test caches and .git (a package
     directory is usually a git checkout; the repository itself never ships)."""
     directory = Path(directory)
     return [
@@ -237,4 +237,4 @@ def tree_files(directory):
     ]
 
 
-SKIPPED_PARTS = {"__pycache__", ".git"}
+SKIPPED_PARTS = {"__pycache__", ".pytest_cache", ".git"}

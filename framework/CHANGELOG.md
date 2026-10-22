@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.6
+
+2026-10-22: what the first reviews of other people's submissions found. `.pytest_cache` is skipped like `__pycache__`
+(a package release shipped one), and check's size warning counts the same files a release ships (it warned
+"large size increase" on seven untouched skills because their tests had written `__pycache__`). Maintainer side, not
+shipped: `unpack.py` gives back a release's source tree from Drive or a zip, optionally with an inbox submission laid
+over its skill, so a review compares against what users have even when the repo lags; `gate.strip_gate` is the
+inverse of the gate release adds. authoring.md has the review routine and the release-maintainer's housekeeping.
+
 ## 0.1.5
 
 2026-10-12: Mac, before the first user (Mac installs are not measured yet). START HERE step 2 looks before it
