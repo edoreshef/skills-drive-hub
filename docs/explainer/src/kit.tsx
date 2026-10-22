@@ -153,7 +153,7 @@ export const Line: React.FC<{at: number; points: [number, number][]; color?: str
 
 /** A flat panel with a thin graphite rule. `tab` is a small title on its top edge. */
 export const Sheet: React.FC<{children?: React.ReactNode; style?: React.CSSProperties; tab?: string; tabColor?: string; pad?: number; tone?: string}> = ({children, style, tab, tabColor = C.ink2, pad = 24, tone = C.sheet}) => (
-  <div style={{position: 'relative', background: tone, border: `1.5px solid ${C.ink}`, borderRadius: 8, padding: pad, fontFamily: SANS, color: C.ink, boxSizing: 'border-box', ...style}}>
+  <div style={{position: 'relative', background: tone, border: `1.5px solid ${C.ink}`, borderRadius: 8, padding: pad, fontFamily: SANS, color: C.ink, boxSizing: 'border-box', boxShadow: '0 6px 18px rgba(27,36,48,0.08)', ...style}}>
     {tab && (
       <div style={{position: 'absolute', top: -15, left: 18, background: tone, padding: '2px 10px', fontFamily: MONO, fontSize: 20, color: tabColor, border: `1.5px solid ${C.ink}`, borderRadius: 5}}>{tab}</div>
     )}
@@ -230,15 +230,22 @@ export const Code: React.FC<{lines: CodeLine[]; at: number; step?: number; size?
 };
 
 /** A terminal: a typed command, then output lines appearing in order. */
+// Commands type at 90 cps: fast enough that a long command is on screen within a second or two,
+// so the output lines land while the narration is still describing them.
+const TYPE_CPS = 90;
+
 export const Terminal: React.FC<{at: number; command: string; output?: CodeLine[]; outAt?: number; width?: number; height?: number; size?: number; title?: string}> = ({at, command, output = [], outAt, width = 900, height, size = 23, title = 'agent shell'}) => {
-  const cmdFrames = Math.ceil((command.length / 45) * FPS);
+  const cmdFrames = Math.ceil((command.length / TYPE_CPS) * FPS);
   // output waits for the typed command
   const start = outAt ?? at + cmdFrames + 8;
   return (
-    <div style={{width, height, background: C.ink, borderRadius: 10, overflow: 'hidden', boxSizing: 'border-box', fontFamily: MONO, fontSize: size, color: '#E6EAF2', lineHeight: 1.6}}>
-      <div style={{background: '#2A3545', color: '#9AA6B8', fontFamily: SANS, fontSize: size * 0.8, padding: '6px 16px'}}>{title}</div>
+    <div style={{width, height, background: C.ink, borderRadius: 10, overflow: 'hidden', boxSizing: 'border-box', fontFamily: MONO, fontSize: size, color: '#E6EAF2', lineHeight: 1.6, boxShadow: '0 12px 30px rgba(27,36,48,0.18)'}}>
+      <div style={{background: '#2A3545', color: '#9AA6B8', fontFamily: SANS, fontSize: size * 0.8, padding: '6px 16px', display: 'flex', alignItems: 'center', gap: 10}}>
+        <span style={{display: 'inline-flex', gap: 6}}>{['#5B6B80', '#5B6B80', '#5B6B80'].map((c, i) => <span key={i} style={{width: 10, height: 10, borderRadius: '50%', background: c, display: 'inline-block'}} />)}</span>
+        {title}
+      </div>
       <div style={{padding: '14px 20px'}}>
-        <div style={{whiteSpace: 'pre-wrap', wordBreak: 'break-all'}}><span style={{color: '#7FB0FF'}}>$ </span><Typed at={at} text={command} cps={45} style={{whiteSpace: 'pre-wrap'}} /></div>
+        <div style={{whiteSpace: 'pre-wrap', wordBreak: 'break-all'}}><span style={{color: '#7FB0FF'}}>$ </span><Typed at={at} text={command} cps={TYPE_CPS} style={{whiteSpace: 'pre-wrap'}} /></div>
         {output.map((l, i) => (
           <OutLine key={i} at={l.at ?? start + i * 4} text={l.text} color={l.color} />
         ))}
@@ -261,7 +268,7 @@ export const Persona: React.FC<{initials: string; name: string; role?: string; c
   return (
     <div style={{display: 'flex', alignItems: 'center', gap: size * 0.22, fontFamily: SANS}}>
       <div style={{position: 'relative', width: size, height: size, flexShrink: 0}}>
-        <div style={{width: size, height: size, borderRadius: '50%', background: color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: size * 0.38, letterSpacing: 1}}>{initials}</div>
+        <div style={{width: size, height: size, borderRadius: '50%', background: color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: size * 0.38, letterSpacing: 1, boxShadow: `0 0 0 ${Math.max(3, size * 0.05)}px ${C.sheet}, 0 0 0 ${Math.max(4.5, size * 0.065)}px ${color}33`}}>{initials}</div>
         {badge && (
           <div style={{position: 'absolute', right: -size * 0.12, bottom: -size * 0.04, background: C.amber, color: '#fff', fontSize: size * 0.15, fontWeight: 600, padding: `${size * 0.03}px ${size * 0.09}px`, borderRadius: 5, border: `2px solid ${C.paper}`, opacity: b, transform: `scale(${0.6 + 0.4 * b})`}}>{badge}</div>
         )}
@@ -301,8 +308,10 @@ export const Say: React.FC<{who: 'person' | 'agent'; children: React.ReactNode; 
 
 export const Stage: React.FC<{children: React.ReactNode}> = ({children}) => (
   <div style={{position: 'absolute', inset: 0, background: C.paper, fontFamily: SANS, color: C.ink, overflow: 'hidden'}}>
-    <div style={{position: 'absolute', inset: 0, backgroundImage: `linear-gradient(${C.grid} 1px, transparent 1px), linear-gradient(90deg, ${C.grid} 1px, transparent 1px)`, backgroundSize: '40px 40px', opacity: 0.55}} />
-    <div style={{position: 'absolute', inset: 0, backgroundImage: `linear-gradient(${C.grid} 1.5px, transparent 1.5px), linear-gradient(90deg, ${C.grid} 1.5px, transparent 1.5px)`, backgroundSize: '200px 200px', opacity: 0.8}} />
+    {/* Quiet graph paper: the fine grid is barely there, the coarse one is a hint. Text sits on top without competing. */}
+    <div style={{position: 'absolute', inset: 0, backgroundImage: `linear-gradient(${C.grid} 1px, transparent 1px), linear-gradient(90deg, ${C.grid} 1px, transparent 1px)`, backgroundSize: '40px 40px', opacity: 0.3}} />
+    <div style={{position: 'absolute', inset: 0, backgroundImage: `linear-gradient(${C.grid} 1.5px, transparent 1.5px), linear-gradient(90deg, ${C.grid} 1.5px, transparent 1.5px)`, backgroundSize: '200px 200px', opacity: 0.5}} />
+    <div style={{position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 40%, transparent 55%, ${C.paper} 100%)`}} />
     {children}
   </div>
 );

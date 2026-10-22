@@ -8,6 +8,10 @@ synthesis steps under "Change the script" to rebuild the audio before previewing
 The script follows the framing in the top-level README: Skills Hub is the framework, Google
 Drive is the hub, and users get, sync, and contribute by asking their agent. About 6.7 minutes.
 
+The running example is invented: Dana, a demand planner in a supply chain group, maintains a
+`planning` package whose skills are `stock-readout`, `lead-times` and `weekly-brief`; Sam, Jun and
+the others are her colleagues. No person, organization or dataset in the video is real.
+
 ```text
 narration/scenes.json   the script: one narration paragraph per scene
 narration/synth_all.py  ElevenLabs TTS per scene → public/audio/<id>.mp3, src/durations.json
