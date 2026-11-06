@@ -102,7 +102,7 @@ Release refuses anything `check.py` blocks, plus a framework zip with non-framew
 ├── marketplace.json                   Claude Code: one entry per installed plugin
 ├── state.json                         per package: version, sha256, bytes, current_file_id, last_check, pending_version
 ├── links.json                         Cursor: links that link.py created
-└── drafts/<slug>/<skill>/             author drafts
+└── drafts/<slug>/<skill>/             author drafts, and local edits that sync kept before a swap
 ```
 
 ## Install and sync
@@ -113,6 +113,10 @@ First install follows [`start-here.md`](start-here.md). Sync, per package:
 2. **Check.** Download that package's `current.json` by the file ID in `state.json`. Same version: refresh `last_check`, clear `pending_version`, and stop. Another version: record it as `pending_version`.
 3. **Fetch.** Download the zip by `zip_file_id`. The host saves it to a tool-result file, which `install.py --from-tool-result` and `sync.py` read directly. If a zip comes back inline, the agent stops instead of retyping it. The fix is `MAX_MCP_OUTPUT_TOKENS` set to 2000 in the user's Claude Code settings `env`.
 4. **Verify and swap.** sha256 and size must match. On mismatch nothing changes; retry once, then stop. Other packages are never touched.
+   Before the swap, `install.py` compares `current/` and `previous/` with their `manifest.json`. Each skill with a changed,
+   added or removed file is copied, without the sync gate, to `drafts/<slug>/<skill>/` (`<skill>-2` and so on if that
+   exists; a copy already there is not written again), and changed files outside `skills/` to `drafts/<slug>/package-files/`.
+   It prints one `kept local edits` line per copy. If a copy fails, nothing is swapped. Local edits are never carried into the new version.
 5. **Load.** Cursor: `link.py`. Claude Science: `host.skills` for changed skills. Then `doctor.py`.
 
 A successful install rewrites the package's record with a fresh `last_check` and no `pending_version`.

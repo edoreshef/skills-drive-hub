@@ -226,6 +226,25 @@ def write_marketplace(root):
     return target
 
 
+def is_gated(relative):
+    """A package-relative path that release gives the sync gate (maintainer/gate.py)."""
+    parts = relative.split("/")
+    return len(parts) >= 4 and parts[0] == "skills" and parts[2] == "scripts" and relative.endswith(".py")
+
+
+# Matches maintainer/gate.py's TEMPLATE; test_gate checks that strip_gate undoes add_gate.
+GATE_BLOCK = re.compile(r"\n?(?:# skills-hub sync gate[^\n]*\n)?def _skills_hub_gate\(.*?^del _skills_hub_gate\n\n?",
+                        re.S | re.M)
+
+
+def strip_gate(data):
+    """Script bytes with the sync gate taken out: the inverse of add_gate for this version's gate. A gate written by
+    an older Skills Hub is also removed, but a blank line it added may stay."""
+    text = data.decode("utf-8")
+    stripped, count = GATE_BLOCK.subn("", text, count=1)
+    return stripped.encode("utf-8") if count else data
+
+
 def tree_files(directory):
     """Regular files under directory as (path, relative), skipping symlinks, test caches and .git (a package
     directory is usually a git checkout; the repository itself never ships)."""

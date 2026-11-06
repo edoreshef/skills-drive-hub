@@ -33,4 +33,6 @@ On Claude Science, `~/.skills-hub` means the workspace root in `SKILLS_HUB_ROOT`
 
 If `python3 --version` does not print Python 3.9 or later, or on a Mac where `xcode-select -p` fails (there `python3` opens an install dialog; never run it), run each command above as `uv run --python-preference only-managed --script <tool>.py` with the same arguments.
 
+If sync printed `kept local edits to ... in <dir>`, the user had changed that installed skill. Tell them their version is saved in `<dir>`, the installed skill is now the released one, and they can submit their changes with the `publish` skill. Never copy the saved files back over the installed package. A `was removed locally` line means the update brought back a file they had deleted.
+
 Report the doctor output. Use the downloaded files. Do not retype the zip.

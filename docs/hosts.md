@@ -22,7 +22,8 @@ claude plugin install <slug>@skills-hub
 
 The marketplace file lists `framework/current` and each `packages/<slug>/current`, and is rewritten after every
 install and sync. Sessions read
-those directories in place, so swapping `current` is the update. Do not also copy these skills
+those directories in place, so swapping `current` is the update. A skill the user edited in place is copied to
+`~/.skills-hub/drafts/` before the swap ([`design.md`](design.md#install-and-sync)). Do not also copy these skills
 into `~/.claude/skills`: they would load twice. `claude plugin marketplace remove` leaves a
 cache folder under `~/.claude/plugins/cache/`; delete it on uninstall.
 

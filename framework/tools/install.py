@@ -32,11 +32,17 @@ from common import (
     SLUG_RE,
     is_conflict_copy,
     is_credential,
+    is_gated,
     load_state,
     save_state,
+    strip_gate,
+    tree_files,
     utc_now,
     write_marketplace,
 )
+
+# Written by the OS, not the user: not a local edit.
+OS_LITTER = {".DS_Store", "Thumbs.db", "desktop.ini"}
 
 
 class InstallError(Exception):
@@ -91,6 +97,12 @@ def install(root, slug, data, expected_sha, expected_bytes=None, expected_versio
         raise InstallError(str(exc)) from None
     extract_root, version = extract_zip(data, slug, expected_version)
     try:
+        try:
+            notes = keep_local_edits(root, slug)
+        except OSError as exc:
+            raise InstallError(f"could not keep local edits ({exc}); left the package unchanged") from None
+        for note in notes:
+            print(note)
         activate(root, slug, extract_root)
     finally:
         shutil.rmtree(extract_root, ignore_errors=True)
@@ -254,6 +266,76 @@ def refuse_member(info):
         raise InstallError(f"zip contains a conflict copy: {info.filename}")
     if path.as_posix() == "tools/install.py":
         raise InstallError("content zip contains tools/install.py")
+
+
+def keep_local_edits(root, slug):
+    """Copy each skill the user changed in current/ or previous/ to drafts/<slug>/ before activate() replaces them.
+    Returns one line per copy written and per local removal the update undoes.
+
+    A change is any file that differs from the tree's manifest.json, was added, or was removed. The copy is source
+    form (no sync gate), ready for the publish skill. previous/ is checked too: an install without this check moved
+    edits there unannounced, and this swap deletes previous/. A copy already in drafts/ is not written again.
+    """
+    package_dir = root / "packages" / slug
+    drafts = root / "drafts" / slug
+    notes = []
+    for tree in (package_dir / "previous", package_dir / "current"):
+        skills, others = local_edits(tree)
+        removed = [f"skills/{skill}" for skill in sorted(skills) if not (tree / "skills" / skill).is_dir()]
+        removed += [relative for relative in others if not (tree / relative).is_file()]
+        if tree.name == "current":
+            notes += [f"{relative} was removed locally; the update brings back the released one" for relative in removed]
+        for skill in sorted(skills):
+            source = tree / "skills" / skill
+            if source.is_dir():
+                entries = {relative: strip_gate(path.read_bytes()) if is_gated(f"skills/{skill}/{relative}")
+                           else path.read_bytes() for path, relative in user_files(source)}
+                notes += kept_note(f"skills/{skill}", tree, keep(entries, drafts / skill))
+        present = {relative: (tree / relative).read_bytes() for relative in others if (tree / relative).is_file()}
+        if present:
+            notes += kept_note(", ".join(sorted(present)), tree, keep(present, drafts / "package-files"))
+    return notes
+
+
+def local_edits(tree):
+    """(skill names with a changed file, changed files outside skills/) against tree/manifest.json."""
+    manifest = tree / "manifest.json"
+    if not manifest.is_file():
+        return set(), []
+    try:
+        listed = {entry["path"]: entry["sha256"] for entry in json.loads(manifest.read_text(encoding="utf-8"))["files"]}
+    except (OSError, ValueError, KeyError, TypeError):
+        raise InstallError(f"cannot read {manifest} to look for local edits; left the package unchanged") from None
+    on_disk = {relative: path for path, relative in user_files(tree) if relative != "manifest.json"}
+    changed = {relative for relative, path in on_disk.items()
+               if listed.get(relative) != hashlib.sha256(path.read_bytes()).hexdigest()}
+    changed |= set(listed) - set(on_disk)
+    in_skill = {relative for relative in changed if relative.startswith("skills/") and relative.count("/") >= 2}
+    return {relative.split("/")[1] for relative in in_skill}, sorted(changed - in_skill)
+
+
+def keep(entries, base):
+    """Write {relative: bytes} under base, or base-2, base-3, ... unless one already holds exactly these files.
+    Returns the directory written, or None."""
+    for number in range(1, 100):
+        target = base if number == 1 else base.with_name(f"{base.name}-{number}")
+        if not target.exists():
+            for relative, data in entries.items():
+                path = target / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            return target
+        if {relative: path.read_bytes() for path, relative in user_files(target)} == entries:
+            return None
+    raise InstallError(f"too many drafts named {base.name}; left the package unchanged")
+
+
+def user_files(directory):
+    return [(path, relative) for path, relative in tree_files(directory) if path.name not in OS_LITTER]
+
+
+def kept_note(what, tree, target):
+    return [f"kept local edits to {what} from {tree} in {target}"] if target else []
 
 
 def activate(root, slug, extract_root):

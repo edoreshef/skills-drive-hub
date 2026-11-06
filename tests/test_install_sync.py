@@ -220,6 +220,90 @@ class SyncTest(ToolTest):
         self.assertEqual(read_json(root / "state.json")["packages"]["foundation-sample"]["pending_version"], "0.4.0")
 
 
+class LocalEditsTest(ToolTest):
+    """A skill the user edited in the installed tree is copied to drafts/ before an update swaps it out."""
+
+    def setUp(self):
+        super().setUp()
+        self.out, self.root = self.tmp / "dist", self.tmp / "skills-hub"
+        self.release(self.out, FIXTURES / "foundation-sample")
+        self.install_release(self.root, self.out / "foundation-sample")
+        self.installed = self.root / "packages/foundation-sample/current/skills/shared-terms"
+        self.drafts = self.root / "drafts/foundation-sample"
+
+    def sync_to(self, version):
+        source = self.tmp / f"foundation-{version}"
+        if not source.exists():
+            shutil.copytree(FIXTURES / "foundation-sample", source)
+            write_json(source / "package.json", {**read_json(source / "package.json"), "version": version})
+        self.release(self.out, source)
+        synced = run(SYNC, "--root", self.root, "--from-release", self.out / "foundation-sample")
+        self.assertEqual(synced.returncode, 0, synced.stderr)
+        return synced
+
+    def test_edits_survive_two_updates_in_source_form(self):
+        script = self.installed / "scripts/echo_marker.py"
+        self.assertIn("_skills_hub_gate", script.read_text(encoding="utf-8"))
+        edited_skill = (self.installed / "SKILL.md").read_text(encoding="utf-8") + "\nMy local rule.\n"
+        (self.installed / "SKILL.md").write_text(edited_skill, encoding="utf-8")
+        (self.installed / "notes.md").write_text("added locally\n", encoding="utf-8")
+        (self.installed / ".DS_Store").write_bytes(b"\0")
+
+        first = self.sync_to("0.2.0")
+        self.assertIn(f"kept local edits to skills/shared-terms from {self.installed.parents[1]} in "
+                      f"{self.drafts / 'shared-terms'}", first.stdout)
+        kept = self.drafts / "shared-terms"
+        self.assertEqual((kept / "SKILL.md").read_text(encoding="utf-8"), edited_skill)
+        self.assertEqual((kept / "notes.md").read_text(encoding="utf-8"), "added locally\n")
+        self.assertFalse((kept / ".DS_Store").exists())
+        self.assertEqual((kept / "scripts/echo_marker.py").read_bytes(),
+                         (FIXTURES / "foundation-sample/skills/shared-terms/scripts/echo_marker.py").read_bytes())
+        self.assertNotIn("My local rule.", (self.installed / "SKILL.md").read_text(encoding="utf-8"))
+
+        second = self.sync_to("0.3.0")
+        self.assertNotIn("kept local edits", second.stdout)
+        self.assertEqual(sorted(p.name for p in self.drafts.iterdir()), ["shared-terms"])
+        self.assertEqual((kept / "SKILL.md").read_text(encoding="utf-8"), edited_skill)
+
+    def test_an_existing_draft_is_never_overwritten(self):
+        own_draft = self.drafts / "shared-terms"
+        own_draft.mkdir(parents=True)
+        (own_draft / "SKILL.md").write_text("the user's own draft\n", encoding="utf-8")
+        (self.installed / "examples/run.md").write_text("edited\n", encoding="utf-8")
+        synced = self.sync_to("0.2.0")
+        self.assertIn(f"in {self.drafts / 'shared-terms-2'}", synced.stdout)
+        self.assertEqual((own_draft / "SKILL.md").read_text(encoding="utf-8"), "the user's own draft\n")
+        self.assertEqual((self.drafts / "shared-terms-2/examples/run.md").read_text(encoding="utf-8"), "edited\n")
+
+    def test_removals_are_reported_and_package_files_kept(self):
+        (self.installed / "examples/run.md").unlink()
+        package_json = self.root / "packages/foundation-sample/current/package.json"
+        package_json.write_text(package_json.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+        synced = self.sync_to("0.2.0")
+        self.assertIn("kept local edits to skills/shared-terms", synced.stdout)
+        self.assertFalse((self.drafts / "shared-terms/examples/run.md").exists())
+        self.assertIn("kept local edits to package.json", synced.stdout)
+        self.assertTrue((self.drafts / "package-files/package.json").is_file())
+
+        shutil.rmtree(self.installed)
+        synced = self.sync_to("0.3.0")
+        self.assertIn("skills/shared-terms was removed locally; the update brings back the released one", synced.stdout)
+        self.assertTrue(self.installed.is_dir())
+
+    def test_edits_left_in_previous_by_an_older_install_are_rescued(self):
+        self.sync_to("0.2.0")
+        previous = self.root / "packages/foundation-sample/previous/skills/shared-terms"
+        (previous / "SKILL.md").write_text("edited before this fix\n", encoding="utf-8")
+        synced = self.sync_to("0.3.0")
+        self.assertIn(f"from {previous.parents[1]} in {self.drafts / 'shared-terms'}", synced.stdout)
+        self.assertEqual((self.drafts / "shared-terms/SKILL.md").read_text(encoding="utf-8"), "edited before this fix\n")
+
+    def test_an_unchanged_install_keeps_nothing(self):
+        synced = self.sync_to("0.2.0")
+        self.assertNotIn("kept local edits", synced.stdout)
+        self.assertFalse(self.drafts.exists())
+
+
 if __name__ == "__main__":
     unittest.main()
 

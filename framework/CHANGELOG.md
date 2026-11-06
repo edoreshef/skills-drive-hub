@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.7
+
+2026-11-06: an update no longer loses a skill the user edited in their installed package. Before the swap, `install.py` (and so
+`sync.py`) compares `current/` and `previous/` with their `manifest.json` and copies every changed skill, without the
+sync gate, to `~/.skills-hub/drafts/<slug>/<skill>/`. It prints `kept local edits ... in <dir>`, and the `sync` skill
+tells the user where their version is and that `publish` can submit it. Until now an edit moved to `previous/` on the
+first update and was deleted on the second, without a word. `is_gated` and `strip_gate` moved from `maintainer/gate.py`
+to `common.py`, which the installer needs.
+
 ## 0.1.6
 
 2026-10-22: what the first reviews of other people's submissions found. `.pytest_cache` is skipped like `__pycache__`

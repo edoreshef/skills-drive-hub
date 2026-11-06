@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-05
+
+When sync keeps local edits to an installed skill, tell the user where they are and offer `publish`.
+
 ## 2026-10-12
 
 Mac: when `python3` is not a usable Python (no Command Line Tools), run the tools through `uv`'s own Python.

@@ -10,6 +10,11 @@ and with neither it warns and runs.
 
 import ast
 import re
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "framework" / "tools"))
+from common import is_gated, strip_gate  # noqa: E402,F401  install.py strips the gate too, so the framework owns it
 
 MAX_AGE_HOURS = 24
 BLOCKED_EXIT = 75
@@ -65,11 +70,6 @@ class GateError(Exception):
     pass
 
 
-def is_gated(relative):
-    parts = relative.split("/")
-    return len(parts) >= 4 and parts[0] == "skills" and parts[2] == "scripts" and relative.endswith(".py")
-
-
 def gate_source(slug):
     return (TEMPLATE.replace("__SLUG__", repr(slug))
             .replace("__MAX_AGE__", str(MAX_AGE_HOURS))
@@ -106,15 +106,3 @@ def add_gate(data, slug):
     if tail:
         gate += "\n"
     return ("".join(head) + gate + "".join(tail)).encode("utf-8")
-
-
-GATE_BLOCK = re.compile(r"\n?(?:# skills-hub sync gate[^\n]*\n)?def _skills_hub_gate\(.*?^del _skills_hub_gate\n\n?",
-                        re.S | re.M)
-
-
-def strip_gate(data):
-    """Script bytes with the sync gate taken out: the inverse of add_gate for this version's gate. A gate written by
-    an older Skills Hub is also removed, but a blank line it added may stay."""
-    text = data.decode("utf-8")
-    stripped, count = GATE_BLOCK.subn("", text, count=1)
-    return stripped.encode("utf-8") if count else data
